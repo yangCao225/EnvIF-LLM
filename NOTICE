@@ -1,0 +1,9 @@
+EnvIF builds on AutoIF:
+
+Dong et al., Self-play with Execution Feedback: Improving Instruction-following
+Capabilities of Large Language Models, ICLR 2025.
+https://arxiv.org/abs/2406.13542
+
+Original AutoIF pipeline scripts (code/1_RFT.py through 9_sft_data_construction.py
+and the DPO construction steps) follow that work. EnvIF-specific additions include
+domain data, EnvIF-Bench, typed layered reward, and evaluation scripts under MIT.

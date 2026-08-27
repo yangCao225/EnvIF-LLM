@@ -1,0 +1,11 @@
+{
+  "n": 12,
+  "instruction_following_accuracy": 1.0,
+  "calculation_accuracy": 0.3,
+  "unit_accuracy": 0.5,
+  "field_completeness": null,
+  "fabricated_standard_rate": 0.0,
+  "uncertainty_handling_rate": null,
+  "mean_layer_score": 0.7375,
+  "tag": "demo"
+}

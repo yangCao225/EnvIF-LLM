@@ -1,0 +1,47 @@
+{
+  "n_total": 72,
+  "n_auto": 68,
+  "prompt_accuracy": 1.0,
+  "constraint_accuracy": 1.0,
+  "by_family": {
+    "content": 1.0,
+    "domain": 1.0,
+    "format": 1.0,
+    "multi": 1.0,
+    "numerical": 1.0
+  },
+  "by_task": {
+    "environmental_calculation": 1.0,
+    "environmental_monitoring": 1.0,
+    "format_constraint": 1.0,
+    "multi_step_reasoning": 1.0,
+    "pollution_control": 1.0,
+    "safety_constraint": 1.0,
+    "terminology_explanation": 1.0,
+    "wastewater_treatment": 1.0
+  },
+  "by_verifier": {
+    "content.explain_term": 1.0,
+    "content.missing_params": 1.0,
+    "content.must_include": 1.0,
+    "domain.allowed_units": 1.0,
+    "domain.no_fabricated_standard": 1.0,
+    "domain.no_false_certainty": 1.0,
+    "domain.ph_dimensionless": 1.0,
+    "domain.process_match": 1.0,
+    "domain.safety": 1.0,
+    "format.arrow_process": 1.0,
+    "format.headers": 1.0,
+    "format.insufficient_prefix": 1.0,
+    "format.length": 1.0,
+    "format.n_causes": 1.0,
+    "format.n_steps": 1.0,
+    "format.table": 1.0,
+    "numerical.formula": 1.0,
+    "numerical.magnitude": 1.0,
+    "numerical.two_decimals": 1.0,
+    "numerical.value": 1.0
+  },
+  "tag": "oracle",
+  "mode": "oracle"
+}

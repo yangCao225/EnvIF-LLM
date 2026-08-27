@@ -1,0 +1,169 @@
+# AutoIF 环境工程流水线配置
+# 所有核心脚本与 run_all.sh 从此文件读取阈值、路径和学习率。
+# 实验数字不要写进 PDF/README，统一引用 output/experiment_summary.json。
+
+project:
+  name: "面向污水处理与环境监测的 AutoIF 环境工程大模型指令遵循优化系统"
+  short_name: "AutoIF-EnvEng"
+  goal: "优化模型的结构化专业回答能力，而不是宣称少量微调即可掌握全部环境工程知识。"
+
+# ========== 模型配置 ==========
+models:
+  supervisor:
+    name: "Qwen/Qwen2.5-7B-Instruct"
+    api_key: "EMPTY"
+    local_path: "./models/teacher"
+  base_model:
+    path: "./models/student"
+    type: "qwen"
+  output_paths:
+    sft: "./models/model_c_sft"
+    dpo: "./models/model_c_dpo"
+    merged: "./models/model_merged"
+    quantized: "./models/model_gptq_int4"
+
+# ========== 领域与数据 ==========
+data:
+  domain: "环境工程"
+  seed_instructions: "./sample_data/seed_instruction_环境工程.txt"
+  query_file: "./data/environmental_engineering_queries.jsonl"
+  test_file: "./data/environmental_engineering_test.jsonl"
+  sft_data: "./output/IF_sft_data.json"
+  dpo_pairs: "./output/dpo_pairs.jsonl"
+
+  scene_mix:
+    wastewater: 0.40
+    monitoring: 0.20
+    air: 0.15
+    solid_waste: 0.10
+    noise: 0.05
+    eia_cleaner_production: 0.10
+
+  augmentation:
+    k_augment: 3
+    instructions_per_seed: 50
+    rft_samples: 5
+
+  query:
+    sharegpt_path: ""
+    queries_per_instruction: 16
+    min_query_length: 20
+    max_query_length: 400
+    min_calc_ratio: 0.30
+    min_diagnosis_ratio: 0.20
+
+  quality_thresholds:
+    cross_validation_acc: 0.8
+    min_functions: 3
+    min_test_cases: 10
+    quality_score: 8
+
+  dpo:
+    positive_threshold: 0.5
+    negative_threshold: 0.0
+    samples_per_query: 2
+
+  validation:
+    calc_rel_tol: 0.02
+    calc_abs_tol: 0.05
+    k_verification: 5
+    k_response: 5
+    exec_timeout: 5
+    llm_max_workers: 8
+
+# ========== 训练配置 ==========
+training:
+  sft:
+    num_gpus: 1
+    batch_size: 4
+    gradient_accumulation: 4
+    learning_rate: 5.0e-5
+    epochs: 3
+    max_length: 2048
+    warmup_ratio: 0.1
+    save_steps: 100
+    precision: "fp16"
+    lora_rank: 8
+    lora_alpha: 16
+  dpo:
+    num_gpus: 1
+    batch_size: 2
+    gradient_accumulation: 4
+    learning_rate: 5.0e-6
+    epochs: 2
+    max_length: 2048
+    warmup_ratio: 0.1
+    save_steps: 100
+    precision: "fp16"
+    pref_beta: 0.1
+    lora_rank: 8
+    lora_alpha: 16
+
+# ========== 量化配置 ==========
+quantization:
+  method: "gptq"
+  gptq:
+    bits: 4
+    group_size: 128
+    desc_act: true
+    calibration_samples: 128
+  awq:
+    bits: 4
+    group_size: 128
+    zero_point: true
+
+# ========== 评估配置 ==========
+evaluation:
+  test_set: "./data/environmental_engineering_test.jsonl"
+  output_dir: "./eval_results"
+  metrics:
+    - instruction_following_accuracy
+    - calculation_accuracy
+    - unit_accuracy
+    - field_completeness
+    - factual_accuracy
+    - fabricated_standard_rate
+    - uncertainty_handling_rate
+    - dpo_win_rate
+    - quantization_drop
+    - latency_memory
+  models_to_compare:
+    - base
+    - sft
+    - sft_dpo
+    - quantized
+
+# ========== 日志 ==========
+logging:
+  level: "INFO"
+  output_dir: "./logs"
+
+misc:
+  seed: 42
+  num_workers: 4
+  timeout: 5
+  use_cache: true
+  cache_dir: "./cache"
+
+# EnvIF-TLR：叠在 AutoIF 上的分类型分层奖励，不是新的预训练算法
+envif:
+  name: "Typed Layered Reward"
+  layers: [format, calculation, knowledge]
+  weights:
+    format: 0.25
+    calculation: 0.45
+    knowledge: 0.30
+  error_types:
+    - calc_error
+    - unit_error
+    - format_error
+    - fabricated_standard
+    - false_certainty
+    - missing_insufficient
+  offline_construction: true
+
+envif_bench:
+  path: "./data/envif_bench/envif_bench.jsonl"
+  families: [content, format, numerical, domain, multi]
+
+

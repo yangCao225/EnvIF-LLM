@@ -1,0 +1,22 @@
+{
+  "autoif_sft": {
+    "file_name": "../output/IF_sft_data.json",
+    "formatting": "alpaca",
+    "columns": {
+      "prompt": "instruction",
+      "query": "input",
+      "response": "output",
+      "history": "history"
+    }
+  },
+  "autoif_dpo": {
+    "file_name": "../output/dpo_pairs.jsonl",
+    "formatting": "sharegpt",
+    "ranking": true,
+    "columns": {
+      "messages": "conversations",
+      "chosen": "chosen",
+      "rejected": "rejected"
+    }
+  }
+}

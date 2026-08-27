@@ -1,0 +1,167 @@
+{
+  "status": "envif_offline_ready",
+  "generated_at": "2026-08-27T17:58:46",
+  "note": "文档与讲义只允许引用本文件中的数字。未跑通的 GPU 训练字段保持 null。SFT/DPO 条数若来自 EnvIF-TLR 离线构造，不是 LoRA Loss。",
+  "method": "EnvIF-TLR (Typed Layered Reward on AutoIF)",
+  "domain": "环境工程",
+  "counts": {
+    "seed_instructions": 45,
+    "domain_queries": 798,
+    "heldout_test": 309,
+    "augment_instructions": 0,
+    "eval_func_rft": 0,
+    "cross_validation": 0,
+    "back_trans_filter": 0,
+    "query_rft": 0,
+    "query_rft_score": 0,
+    "query_score_filter": 0,
+    "sft": 798,
+    "dpo_pairs": 2394,
+    "envif_bench": 72
+  },
+  "query_source": {
+    "train": {
+      "template": 621,
+      "synthetic_plant_case": 177
+    },
+    "test": {
+      "template": 224,
+      "synthetic_plant_case": 85
+    }
+  },
+  "construction": {
+    "mode": "envif_tlr_offline",
+    "sft": 798,
+    "dpo_pairs": 2394,
+    "skipped_low_score": 0,
+    "note": "由带单位计算层 + 分类型负样本构造，不是教师模型蒸馏；LoRA Loss 仍为 null。"
+  },
+  "training": {
+    "sft_learning_rate": 5e-05,
+    "dpo_learning_rate": 5e-06,
+    "sft_last_loss": null,
+    "dpo_last_loss": null,
+    "sft_time": null,
+    "dpo_time": null
+  },
+  "eval": {
+    "base": null,
+    "sft": null,
+    "sft_dpo": null,
+    "quantized": null,
+    "tlr_ablation": {
+      "n_pairs": 800,
+      "ranking_win_rate": {
+        "format": {
+          "all": 0.3212,
+          "calc_error": 0.0,
+          "fabricated_standard": 0.3174,
+          "false_certainty": 0.3289,
+          "format_error": 0.412,
+          "unit_error": 0.0
+        },
+        "calculation": {
+          "all": 0.2487,
+          "calc_error": 1.0,
+          "fabricated_standard": 0.0913,
+          "false_certainty": 0.1289,
+          "format_error": 0.2659,
+          "unit_error": 1.0
+        },
+        "knowledge": {
+          "all": 0.5925,
+          "calc_error": 0.0,
+          "fabricated_standard": 0.9696,
+          "false_certainty": 0.9644,
+          "format_error": 0.1273,
+          "unit_error": 0.0
+        },
+        "format+calculation": {
+          "all": 0.525,
+          "calc_error": 1.0,
+          "fabricated_standard": 0.4087,
+          "false_certainty": 0.4578,
+          "format_error": 0.5431,
+          "unit_error": 1.0
+        },
+        "format+knowledge": {
+          "all": 0.705,
+          "calc_error": 0.0,
+          "fabricated_standard": 0.9696,
+          "false_certainty": 0.9644,
+          "format_error": 0.4644,
+          "unit_error": 0.0
+        },
+        "calculation+knowledge": {
+          "all": 0.7788,
+          "calc_error": 1.0,
+          "fabricated_standard": 0.9696,
+          "false_certainty": 0.9644,
+          "format_error": 0.3933,
+          "unit_error": 1.0
+        },
+        "format+calculation+knowledge": {
+          "all": 0.8462,
+          "calc_error": 1.0,
+          "fabricated_standard": 0.9696,
+          "false_certainty": 0.9644,
+          "format_error": 0.5955,
+          "unit_error": 1.0
+        }
+      }
+    },
+    "envif_bench_oracle": {
+      "n_total": 72,
+      "n_auto": 68,
+      "prompt_accuracy": 1.0,
+      "constraint_accuracy": 1.0,
+      "by_family": {
+        "content": 1.0,
+        "domain": 1.0,
+        "format": 1.0,
+        "multi": 1.0,
+        "numerical": 1.0
+      },
+      "by_task": {
+        "environmental_calculation": 1.0,
+        "environmental_monitoring": 1.0,
+        "format_constraint": 1.0,
+        "multi_step_reasoning": 1.0,
+        "pollution_control": 1.0,
+        "safety_constraint": 1.0,
+        "terminology_explanation": 1.0,
+        "wastewater_treatment": 1.0
+      },
+      "by_verifier": {
+        "content.explain_term": 1.0,
+        "content.missing_params": 1.0,
+        "content.must_include": 1.0,
+        "domain.allowed_units": 1.0,
+        "domain.no_fabricated_standard": 1.0,
+        "domain.no_false_certainty": 1.0,
+        "domain.ph_dimensionless": 1.0,
+        "domain.process_match": 1.0,
+        "domain.safety": 1.0,
+        "format.arrow_process": 1.0,
+        "format.headers": 1.0,
+        "format.insufficient_prefix": 1.0,
+        "format.length": 1.0,
+        "format.n_causes": 1.0,
+        "format.n_steps": 1.0,
+        "format.table": 1.0,
+        "numerical.formula": 1.0,
+        "numerical.magnitude": 1.0,
+        "numerical.two_decimals": 1.0,
+        "numerical.value": 1.0
+      },
+      "tag": "oracle",
+      "mode": "oracle"
+    }
+  },
+  "deploy": {
+    "merged_model_size": null,
+    "quantized_model_size": null,
+    "latency_ms": null
+  },
+  "log_metrics": {}
+}

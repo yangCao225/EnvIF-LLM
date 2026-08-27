@@ -1,0 +1,51 @@
+### LlamaFactory SFT 训练配置（LoRA）
+### 使用方法: cd LlamaFactory && llamafactory-cli train ../configs/llamafactory_sft_lora.yaml
+
+### ========== 模型配置 ==========
+model_name_or_path: ../models/student  # 基础模型路径（Qwen2.5-1.5B）
+template: qwen  # 根据模型选择: qwen, llama3, mistral, chatglm3 等
+
+### ========== 微调方法 ==========
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_target: all
+lora_rank: 8
+lora_alpha: 16
+lora_dropout: 0.05
+
+### ========== 数据集配置 ==========
+dataset: autoif_sft  # 需要在 LlamaFactory/data/dataset_info.json 中配置
+dataset_dir: ../configs  # 指向包含 llama_factory_dataset_info.json 的目录
+cutoff_len: 2048
+max_samples: 100000
+overwrite_cache: true
+preprocessing_num_workers: 16
+val_size: 0.1
+
+### ========== 输出配置 ==========
+output_dir: ../models/model_c_sft
+logging_steps: 10
+save_steps: 500
+plot_loss: true
+overwrite_output_dir: true
+
+### ========== 训练超参数 ==========
+per_device_train_batch_size: 4
+per_device_eval_batch_size: 4
+gradient_accumulation_steps: 4
+learning_rate: 5.0e-5
+num_train_epochs: 3.0
+lr_scheduler_type: cosine
+warmup_steps: 100
+fp16: true
+
+### ========== 评估配置 ==========
+evaluation_strategy: steps
+eval_steps: 500
+load_best_model_at_end: true
+metric_for_best_model: loss
+
+### ========== 其他配置 ==========
+ddp_timeout: 180000000
+report_to: tensorboard

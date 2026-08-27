@@ -1,0 +1,73 @@
+{
+  "name": "EnvIF-Bench",
+  "title": "环境工程领域指令遵循评测集",
+  "n": 72,
+  "n_auto_verifiable": 68,
+  "n_human_only": 4,
+  "n_atomic_constraints": 172,
+  "skipped_overlap": 0,
+  "by_family": {
+    "numerical": 22,
+    "multi": 22,
+    "format": 14,
+    "content": 10,
+    "domain": 4
+  },
+  "by_task": {
+    "environmental_calculation": 29,
+    "format_constraint": 5,
+    "wastewater_treatment": 11,
+    "safety_constraint": 4,
+    "environmental_monitoring": 7,
+    "terminology_explanation": 7,
+    "multi_step_reasoning": 4,
+    "pollution_control": 5
+  },
+  "verifiers": [
+    "content.explain_term",
+    "content.missing_params",
+    "content.must_include",
+    "domain.allowed_units",
+    "domain.no_fabricated_standard",
+    "domain.no_false_certainty",
+    "domain.ph_dimensionless",
+    "domain.process_match",
+    "domain.safety",
+    "format.arrow_process",
+    "format.headers",
+    "format.insufficient_prefix",
+    "format.length",
+    "format.n_causes",
+    "format.n_steps",
+    "format.table",
+    "numerical.formula",
+    "numerical.magnitude",
+    "numerical.two_decimals",
+    "numerical.value"
+  ],
+  "tasks": [
+    "wastewater_treatment",
+    "environmental_monitoring",
+    "pollution_control",
+    "environmental_calculation",
+    "safety_constraint",
+    "format_constraint",
+    "multi_step_reasoning",
+    "terminology_explanation"
+  ],
+  "families": [
+    "content",
+    "format",
+    "numerical",
+    "domain",
+    "multi"
+  ],
+  "metrics": [
+    "prompt_accuracy",
+    "constraint_accuracy",
+    "by_family",
+    "by_task",
+    "by_verifier"
+  ],
+  "note": "自动 verifier 覆盖 format/numerical/domain/content 可执行约束；开放论证题标记 auto_verifiable=false。"
+}

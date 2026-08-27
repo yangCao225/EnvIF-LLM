@@ -1,0 +1,60 @@
+# AutoIF 项目依赖
+# 安装: pip install -r requirements.txt
+# PyTorch CUDA 版本需单独安装: pip install torch --index-url https://download.pytorch.org/whl/cu121
+
+# ========== 核心 ML 框架 ==========
+torch>=2.1.0
+transformers>=4.40.0
+datasets>=2.18.0
+accelerate>=0.31.0
+peft>=0.11.0
+trl>=0.8.0
+deepspeed>=0.13.0
+bitsandbytes>=0.43.0
+flash-attn>=2.5.0
+
+# ========== 数据处理 ==========
+numpy>=1.26.0
+pandas>=2.2.0
+jsonlines>=4.0.0
+nltk>=3.8.0
+tqdm>=4.66.0
+jieba>=0.42.1
+
+# ========== LLM API 调用 ==========
+openai>=1.0.0
+requests>=2.31.0
+tenacity>=8.2.0
+
+# ========== NLI 模型 ==========
+sentencepiece>=0.2.0
+
+# ========== 训练监控 ==========
+tensorboard>=2.15.0
+matplotlib>=3.9.0
+
+# ========== 模型下载 ==========
+modelscope>=1.15.0
+huggingface-hub>=0.23.0
+
+# ========== 工具库 ==========
+PyYAML>=6.0
+fire>=0.6.0
+rouge-chinese>=1.0.3
+safetensors>=0.4.0
+tiktoken>=0.6.0
+
+# ========== RAG 相关 (可选，按需安装) ==========
+# pip install langchain langchain-community faiss-cpu
+# langchain>=0.2.0
+# langchain-community>=0.2.0
+# faiss-cpu>=1.7.0
+
+# ========== 量化相关 (可选，按需安装) ==========
+# pip install auto-gptq autoawq
+# auto-gptq>=0.7.0
+# autoawq>=0.2.0
+
+# ========== 推理加速 (可选) ==========
+# pip install vllm
+# vllm>=0.4.0

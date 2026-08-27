@@ -1,0 +1,61 @@
+{
+  "n_pairs": 800,
+  "ranking_win_rate": {
+    "format": {
+      "all": 0.3212,
+      "calc_error": 0.0,
+      "fabricated_standard": 0.3174,
+      "false_certainty": 0.3289,
+      "format_error": 0.412,
+      "unit_error": 0.0
+    },
+    "calculation": {
+      "all": 0.2487,
+      "calc_error": 1.0,
+      "fabricated_standard": 0.0913,
+      "false_certainty": 0.1289,
+      "format_error": 0.2659,
+      "unit_error": 1.0
+    },
+    "knowledge": {
+      "all": 0.5925,
+      "calc_error": 0.0,
+      "fabricated_standard": 0.9696,
+      "false_certainty": 0.9644,
+      "format_error": 0.1273,
+      "unit_error": 0.0
+    },
+    "format+calculation": {
+      "all": 0.525,
+      "calc_error": 1.0,
+      "fabricated_standard": 0.4087,
+      "false_certainty": 0.4578,
+      "format_error": 0.5431,
+      "unit_error": 1.0
+    },
+    "format+knowledge": {
+      "all": 0.705,
+      "calc_error": 0.0,
+      "fabricated_standard": 0.9696,
+      "false_certainty": 0.9644,
+      "format_error": 0.4644,
+      "unit_error": 0.0
+    },
+    "calculation+knowledge": {
+      "all": 0.7788,
+      "calc_error": 1.0,
+      "fabricated_standard": 0.9696,
+      "false_certainty": 0.9644,
+      "format_error": 0.3933,
+      "unit_error": 1.0
+    },
+    "format+calculation+knowledge": {
+      "all": 0.8462,
+      "calc_error": 1.0,
+      "fabricated_standard": 0.9696,
+      "false_certainty": 0.9644,
+      "format_error": 0.5955,
+      "unit_error": 1.0
+    }
+  }
+}

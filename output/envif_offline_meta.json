@@ -1,0 +1,7 @@
+{
+  "mode": "envif_tlr_offline",
+  "sft": 798,
+  "dpo_pairs": 2394,
+  "skipped_low_score": 0,
+  "note": "由带单位计算层 + 分类型负样本构造，不是教师模型蒸馏；LoRA Loss 仍为 null。"
+}
