@@ -102,13 +102,16 @@ def main():
             "test": source_counts(ROOT / "data" / "environmental_engineering_test.jsonl"),
         },
         "construction": load_json(ROOT / "output" / "envif_offline_meta.json"),
+        "adapter": load_json(ROOT / "adapters" / "envif-qwen2.5-1.5b-sft" / "envif_train_meta.json"),
         "training": {
             "sft_learning_rate": 5.0e-5,
             "dpo_learning_rate": 5.0e-6,
             "sft_last_loss": None,
+            "sft_mean_loss": None,
             "dpo_last_loss": None,
             "sft_time": None,
             "dpo_time": None,
+            "sft_adapter": None,
         },
         "eval": {
             "base": None,
@@ -125,8 +128,15 @@ def main():
         },
         "log_metrics": parse_log_metrics(log_dir),
     }
+    adapter_meta = summary.get("adapter") or {}
+    if adapter_meta:
+        summary["training"]["sft_adapter"] = "adapters/envif-qwen2.5-1.5b-sft"
+        summary["training"]["sft_mean_loss"] = adapter_meta.get("train_loss")
+        summary["training"]["sft_last_loss"] = adapter_meta.get("last_step_loss") or adapter_meta.get("train_loss")
     if (log_dir / "sft_train.log").exists() or (log_dir / "dpo_train.log").exists():
         summary["status"] = "from_logs"
+    elif (ROOT / "adapters" / "envif-qwen2.5-1.5b-sft" / "adapter_model.safetensors").exists():
+        summary["status"] = "sft_lora_ready"
     elif summary["counts"]["sft"] or summary["counts"]["dpo_pairs"]:
         summary["status"] = "envif_offline_ready"
     OUT.parent.mkdir(parents=True, exist_ok=True)

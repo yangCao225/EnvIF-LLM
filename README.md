@@ -1,7 +1,7 @@
 # 面向污水处理与环境监测的 AutoIF 环境工程大模型指令遵循优化系统
 
-**Open-source release:** EnvIF dataset · EnvIF-Bench · evaluation scripts · CPU demo.  
-LoRA adapter **layout and export script** are included; trained weights are published only after GPU SFT/DPO (see `adapters/README.md`).
+**Open-source release:** EnvIF dataset · EnvIF-Bench · evaluation scripts · CPU demo · **SFT LoRA** (`adapters/envif-qwen2.5-1.5b-sft/`).  
+DPO LoRA is not trained yet. Full 1.5B/7B checkpoints are not in this repo.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -18,9 +18,9 @@ LoRA adapter **layout and export script** are included; trained weights are publ
 | EnvIF-Bench | `data/envif_bench/` | 按 content / format / numerical / domain / multi 标注的指令遵循评测 |
 | Evaluation | `scripts/eval_envif_bench.py`，`scripts/eval_env_engineering.py` | Bench 与领域测试评测 |
 | Demo | `scripts/demo_env_autoif.py` | 无 GPU：三层验证 + chosen/rejected |
-| LoRA adapter | `adapters/`，`scripts/export_lora_adapter.py` | 发布目录与导出脚本；权重需训练后放入 |
+| LoRA adapter | `adapters/envif-qwen2.5-1.5b-sft/` | Qwen2.5-1.5B SFT LoRA（~35 MB）；DPO 尚未训练 |
 
-实验数字一律以 `output/experiment_summary.json` 为准。GPU 上的 SFT/DPO Loss 未跑完前保持 `null`。离线构造的 SFT/DPO 条数可以引用，但必须标明来源是 EnvIF-TLR，不是教师模型蒸馏。
+实验数字一律以 `output/experiment_summary.json` 为准。SFT LoRA 的 loss 来自本机 1.5B 训练；DPO Loss 在未跑完前保持 `null`。离线构造的 SFT/DPO 条数可以引用，但必须标明来源是 EnvIF-TLR，不是教师模型蒸馏。
 
 ---
 
@@ -158,6 +158,8 @@ python scripts/build_experiment_summary.py
 | LoRA rank | 8 | 8 |
 | 序列长度 | 2048 | 2048 |
 
+本仓库已发布的 `adapters/envif-qwen2.5-1.5b-sft/` 是 **Qwen2.5-1.5B** 本机 6GB GPU 训练：2 epoch、max_len 1024、8bit，不是上表 7B/LlamaFactory 设定。数字以 `output/experiment_summary.json` 为准。
+
 ---
 
 ## 项目结构（关键增量）
@@ -172,7 +174,9 @@ scripts/generate_env_queries.py     # 模板 + 运行摘录案例
 code/envif_bench.py                 # EnvIF-Bench 约束类型与 verifier
 scripts/build_envif_bench.py
 scripts/eval_envif_bench.py
+scripts/train_envif_lora.py         # 本机 1.5B SFT LoRA
 data/envif_bench/                   # 指令遵循评测集
+adapters/envif-qwen2.5-1.5b-sft/    # 已训练 SFT LoRA
 ```
 
 操作步骤见 `AutoIF环境工程操作指南.pdf`。实验数字只引用 `output/experiment_summary.json`。

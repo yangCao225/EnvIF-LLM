@@ -1,0 +1,15 @@
+{
+  "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "finetuning": "lora",
+  "lora_rank": 8,
+  "lora_alpha": 16,
+  "epochs": 2,
+  "learning_rate": 5e-05,
+  "n_sft": 798,
+  "max_length": 1024,
+  "load_in_8bit": true,
+  "dataset": "output/IF_sft_data.json",
+  "train_loss": 0.5238734053820372,
+  "last_step_loss": 0.0278,
+  "note": "EnvIF SFT LoRA on wastewater/monitoring instruction-following data. Not a full expert model."
+}

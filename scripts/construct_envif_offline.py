@@ -72,7 +72,7 @@ def main():
         "sft": len(sft),
         "dpo_pairs": len(pairs),
         "skipped_low_score": skipped,
-        "note": "由带单位计算层 + 分类型负样本构造，不是教师模型蒸馏；LoRA Loss 仍为 null。",
+        "note": "由带单位计算层 + 分类型负样本构造，不是教师模型蒸馏。SFT LoRA loss 见 training / adapter 字段，不是本条。",
     }
     (out / "envif_offline_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(meta, ensure_ascii=False, indent=2))

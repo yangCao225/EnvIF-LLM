@@ -18,8 +18,12 @@ logs/
 *.pt
 *.ckpt
 *.gguf
-adapter_model.safetensors
 adapter_model.bin
+
+# Publish LoRA deltas under adapters/ (small); keep full checkpoints out
+!adapters/**/adapter_model.safetensors
+!adapters/**/*.json
+!adapters/**/tokenizer*
 
 # OS / IDE
 .DS_Store
