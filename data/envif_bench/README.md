@@ -1,6 +1,6 @@
 # EnvIF-Bench：环境工程领域指令遵循评测集
 
-面向污水处理、环境监测与污染控制的**指令遵循**评测，而不是开放知识问答。设计对齐 IFEval / FollowBench：先给可执行约束，再按约束类型出分。
+面向污水处理、环境监测与大气污染控制的**指令遵循**评测，而不是开放知识问答。设计对齐 IFEval / FollowBench：先给可执行约束，再按约束类型出分。大气主线覆盖含硫烟气脱硫、含氮烟气脱硝、基准氧折算与烟气监测。
 
 数据文件：`envif_bench.jsonl`。规模以 `envif_bench_meta.json` 为准。
 
@@ -10,7 +10,7 @@
 | --- | --- |
 | `wastewater_treatment` | 污水处理工艺、流程、诊断 |
 | `environmental_monitoring` | 监测报告、点位、达标判断 |
-| `pollution_control` | 气/渣/声等污染控制 |
+| `air_pollution` | 含硫/含氮烟气计算、脱硫脱硝、基准氧、烟气监测 |
 | `environmental_calculation` | 去除率、负荷、HRT、F/M 等 |
 | `safety_constraint` | 药剂、应急、二次污染与安全 |
 | `format_constraint` | 以表格、标题、步骤等格式为主 |

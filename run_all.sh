@@ -69,6 +69,19 @@ echo "  SFT lr: $SFT_LR | DPO lr: $DPO_LR"
 echo "  开始: $(date)"
 echo "============================================"
 
+# 无 7B 教师 / 无 vLLM / Windows：改走本机 EnvIF-TLR 全流程，不伪造九步产物
+if ! python -c "import vllm" >/dev/null 2>&1; then
+    echo "未安装 vLLM，改走 python scripts/run_local_pipeline.py"
+    python scripts/run_local_pipeline.py
+    exit $?
+fi
+TEACHER_OK=$(find models/teacher -name "config.json" 2>/dev/null | head -1)
+if [ -z "$TEACHER_OK" ]; then
+    echo "未找到 7B 教师权重，改走 python scripts/run_local_pipeline.py"
+    python scripts/run_local_pipeline.py
+    exit $?
+fi
+
 TEACHER_PATH=$(find models/teacher -name "config.json" -path "*/Qwen*" 2>/dev/null | head -1 | xargs dirname 2>/dev/null || echo "models/teacher")
 STUDENT_PATH=$(find models/student -name "config.json" -path "*/Qwen*" 2>/dev/null | head -1 | xargs dirname 2>/dev/null || echo "models/student")
 

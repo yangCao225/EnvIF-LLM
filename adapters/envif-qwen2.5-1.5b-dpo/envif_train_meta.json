@@ -1,0 +1,17 @@
+{
+  "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "finetuning": "dpo_lora",
+  "started_from": "adapters/envif-qwen2.5-1.5b-sft",
+  "lora_rank": 8,
+  "epochs": 1,
+  "learning_rate": 5e-06,
+  "n_pairs": 400,
+  "max_length": 512,
+  "load_in_8bit": true,
+  "dataset": "output/dpo_pairs.jsonl",
+  "source": "envif_tlr_offline",
+  "train_loss": 7.41442743958487e-06,
+        "last_step_loss": 0.0,
+        "rewards_accuracies": 1.0,
+        "note": "Offline typed DPO on EnvIF pairs. Loss near 0 because rejected templates are already easy to rank. Not teacher-distilled. Not an expert model."
+}

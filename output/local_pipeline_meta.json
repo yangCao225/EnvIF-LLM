@@ -1,0 +1,21 @@
+{
+  "mode": "envif_tlr_local",
+  "started_at": "2026-09-07T18:16:59",
+  "teacher_7b": false,
+  "vllm": false,
+  "llamafactory_train": false,
+  "note": "本机全流程。数据来自 EnvIF-TLR 离线构造，不是 7B 教师蒸馏。",
+  "steps": {
+    "cpu_tests": true,
+    "cpu_tests_tlr": true,
+    "cpu_tests_bench": true,
+    "construct": true,
+    "prepare_lf": true,
+    "ablate": true,
+    "bench_oracle": true,
+    "smoke": false
+  },
+    "cuda": true,
+    "smoke_error": "os error 1455: Windows 页面文件不足以映射 1.5B safetensors",
+    "finished_at": "2026-09-07T18:18:04"
+}

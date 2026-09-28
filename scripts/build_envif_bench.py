@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "code"))
 
-from env_validators import count_cjk_chars, hrt_hours, pollution_load_kg_d, removal_rate  # noqa: E402
+from env_validators import count_cjk_chars, dry_o2_correct, gas_load_kg_d, hrt_hours, pollution_load_kg_d, removal_rate  # noqa: E402
 from envif_bench import TASKS, VERIFIERS, family_of  # noqa: E402
 
 OUT_DIR = ROOT / "data" / "envif_bench"
@@ -118,6 +118,75 @@ def numerical_items() -> list:
             f"V={v} m³，Q={q} m³/d。HRT=V/Q×24={v}/{q}×24={hrt:.2f} h。",
             gold={"params": {"V": v, "Q": q}, "hrt_h": hrt},
         ))
+    # 含硫 / 含氮烟气：与训练集台账去重，公式为 Qg×ΔC×24×10^{-6}
+    so2_qg, so2_in, so2_out = 9300, 820, 65
+    so2_rate = round(removal_rate(so2_in, so2_out), 2)
+    so2_load = round(gas_load_kg_d(so2_qg, so2_in - so2_out), 2)
+    rows.append(item(
+        "air_pollution",
+        f"临海热电厂烟气量 {so2_qg} m³/h，进口 SO2 {so2_in} mg/m³，出口 SO2 {so2_out} mg/m³。请计算去除率和每日去除负荷。",
+        "必须写出 Qg×ΔC×24×10^{-6}；结果保留两位小数；负荷单位必须是 kg/d；不得套用废水公式。",
+        [
+            C("numerical.value", "numerical", value=so2_rate, unit="%"),
+            C("numerical.value", "numerical", value=so2_load, unit="kg/d"),
+            C("numerical.two_decimals", "numerical"),
+            C("numerical.formula", "numerical"),
+        ],
+        f"已知进口{so2_in} mg/m³、出口{so2_out} mg/m³、烟气量Qg={so2_qg} m³/h。"
+        f"去除率=({so2_in}-{so2_out})/{so2_in}×100%={so2_rate:.2f}%。"
+        f"每日去除负荷={so2_qg}×({so2_in}-{so2_out})×24×10^{-6}={so2_load:.2f} kg/d。"
+        f"未提供排放标准，需核实现行标准。",
+        gold={"params": {"Qg": so2_qg, "Cin": so2_in, "Cout": so2_out}, "removal_rate_pct": so2_rate, "load_kg_d": so2_load},
+    ))
+    nox_qg, nox_in, nox_out = 16800, 410, 48
+    nox_rate = round(removal_rate(nox_in, nox_out), 2)
+    nox_load = round(gas_load_kg_d(nox_qg, nox_in - nox_out), 2)
+    rows.append(item(
+        "air_pollution",
+        f"北港烧结车间烟气量 {nox_qg} m³/h，进口 NOx {nox_in} mg/m³，出口 NOx {nox_out} mg/m³。请计算去除率和每日去除负荷。",
+        "必须写出烟气负荷公式；结果保留两位小数；负荷单位 kg/d。",
+        [
+            C("numerical.value", "numerical", value=nox_rate, unit="%"),
+            C("numerical.value", "numerical", value=nox_load, unit="kg/d"),
+            C("numerical.two_decimals", "numerical"),
+            C("numerical.formula", "numerical"),
+        ],
+        f"已知进口{nox_in} mg/m³、出口{nox_out} mg/m³、烟气量Qg={nox_qg} m³/h。"
+        f"去除率=({nox_in}-{nox_out})/{nox_in}×100%={nox_rate:.2f}%。"
+        f"每日去除负荷={nox_qg}×({nox_in}-{nox_out})×24×10^{-6}={nox_load:.2f} kg/d。",
+        gold={"params": {"Qg": nox_qg, "Cin": nox_in, "Cout": nox_out}, "removal_rate_pct": nox_rate, "load_kg_d": nox_load},
+    ))
+    so2_inlet_qg, so2_c = 25500, 640
+    so2_inlet = round(gas_load_kg_d(so2_inlet_qg, so2_c), 2)
+    rows.append(item(
+        "air_pollution",
+        f"滨江工业锅炉烟气量 {so2_inlet_qg} m³/h，进口 SO2 {so2_c} mg/m³。请计算日均进气负荷。",
+        "必须给出 Qg、浓度、24×10^{-6} 换算和 kg/d 结果，保留两位小数。",
+        [
+            C("numerical.value", "numerical", value=so2_inlet, unit="kg/d"),
+            C("numerical.two_decimals", "numerical"),
+            C("numerical.formula", "numerical"),
+        ],
+        f"烟气量Qg={so2_inlet_qg} m³/h，浓度C={so2_c} mg/m³。"
+        f"负荷=Qg×C×24×10^{-6}={so2_inlet_qg}×{so2_c}×24×10^{-6}={so2_inlet:.2f} kg/d。",
+        gold={"params": {"Qg": so2_inlet_qg, "C": so2_c}, "load_kg_d": so2_inlet},
+    ))
+    o2_c, o2m, o2s = 260, 8.5, 6.0
+    o2_corr = round(dry_o2_correct(o2_c, o2m, o2s), 2)
+    rows.append(item(
+        "air_pollution",
+        f"望海热电实测 SO2={o2_c} mg/m³，烟气含氧 {o2m}%。请按基准氧 {o2s:g}% 折算。",
+        "必须写出 C'=C×(21−O2,s)/(21−O2,m)；结果保留两位小数；同时给出实测值；不得编造排放限值。",
+        [
+            C("numerical.value", "numerical", value=o2_corr, unit="mg/m3"),
+            C("numerical.two_decimals", "numerical"),
+            C("numerical.formula", "numerical"),
+            C("domain.no_fabricated_standard", "domain"),
+        ],
+        f"公式 C'=C×(21−O2,s)/(21−O2,m)={o2_c}×(21−{o2s:g})/(21−{o2m})={o2_corr:.2f} mg/m³。"
+        f"实测浓度 {o2_c} mg/m³。未提供排放标准，需核实现行标准。",
+        gold={"params": {"C": o2_c, "O2m": o2m, "O2s": o2s}, "o2_corrected": o2_corr},
+    ))
     # BOD/COD and F/M
     for i, (bod, cod) in enumerate([(90, 260), (140, 370), (110, 440), (160, 520)]):
         ratio = round(bod / cod, 2)
@@ -309,6 +378,41 @@ def domain_items() -> list:
         ],
         "进口浓度 380 mg/m³。优先：催化燃烧（连续高浓度）。备选：活性炭吸附（波动负荷）。"
         "不推荐：无预处理直接高浓度吸附。风险包括爆炸下限与废活性炭二次污染，需核实现行标准。",
+    ))
+    rows.append(item(
+        "air_pollution",
+        "临海热电厂含硫烟气拟做脱硫改造。请比较石灰石-石膏湿法与半干法。",
+        "必须按优先、备选、不推荐输出；必须涉及脱硫或石膏；必须评估二次污染与运行安全；不得编造排放限值。",
+        [
+            C("content.must_include", "content", terms=["优先", "备选", "不推荐"]),
+            C("domain.process_match", "domain", keywords=["脱硫", "石灰石", "石膏", "湿法"]),
+            C("domain.safety", "domain", terms=["安全", "二次污染", "石膏"], min_hits=2),
+            C("domain.no_fabricated_standard", "domain"),
+        ],
+        "优先：石灰石-石膏湿法脱硫。备选：半干法脱硫。不推荐：仅靠高烟囱稀释。"
+        "二次污染与运行安全：石膏副产物与浆液泄漏。未提供排放标准，需核实现行标准。",
+    ))
+    rows.append(item(
+        "air_pollution",
+        "北港烧结车间含氮烟气拟做脱硝。请比较 SCR 与 SNCR。",
+        "必须按优先、备选、不推荐输出；必须涉及脱硝或氨逃逸；不得编造排放限值。",
+        [
+            C("content.must_include", "content", terms=["优先", "备选", "不推荐"]),
+            C("domain.process_match", "domain", keywords=["脱硝", "SCR", "SNCR", "氨逃逸"]),
+            C("domain.safety", "domain", terms=["安全", "氨逃逸", "催化剂", "二次污染"], min_hits=2),
+            C("domain.no_fabricated_standard", "domain"),
+        ],
+        "优先：SCR脱硝。备选：SNCR。不推荐：无温度窗口盲目喷氨。"
+        "二次污染与运行安全：氨逃逸与废催化剂。未提供排放标准，需核实现行标准。",
+    ))
+    rows.append(item(
+        "air_pollution",
+        "望海热电SCR床层压差快速上升，出口NOx回升。请诊断。",
+        "必须列出恰好三个可能原因，每个原因包含证据和复核方法。",
+        [C("format.n_causes", "format", n=3)],
+        "原因1：催化剂堵塞。证据：压差升高。复核方法：核对压差曲线与运行小时。\n"
+        "原因2：氨逃逸或喷氨不均。证据：出口NOx与嗅辨异常。复核方法：核对喷氨量。\n"
+        "原因3：烟气量或进口NOx冲击。证据：负荷波动。复核方法：核对Qg与进口浓度。",
     ))
     rows.append(item(
         "wastewater_treatment",

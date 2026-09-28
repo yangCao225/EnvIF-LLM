@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 from collections import defaultdict
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List
 
 from env_validators import (
     FALSE_CERTAINTY_RE,
@@ -18,7 +18,12 @@ from env_validators import (
     count_cjk_chars,
     extract_floats,
     extract_quantities,
+    has_gas_load_formula,
+    has_generic_formula_mark,
+    has_o2_correction_formula,
     has_table,
+    looks_like_gas_load_query,
+    looks_like_o2_query,
     nearly_equal,
     values_for_units,
 )
@@ -35,6 +40,7 @@ TASKS = (
     "wastewater_treatment",
     "environmental_monitoring",
     "pollution_control",
+    "air_pollution",
     "environmental_calculation",
     "safety_constraint",
     "format_constraint",
@@ -153,7 +159,12 @@ def v_num_two_decimals(response: str, args: Dict[str, Any], ctx: Dict[str, Any])
 
 
 def v_num_formula(response: str, args: Dict[str, Any], ctx: Dict[str, Any]) -> Dict[str, Any]:
-    return _ok(bool(re.search(r"(=|×|x|\*|÷|/)", response or "")))
+    query = (ctx or {}).get("query") or ""
+    if looks_like_o2_query(query):
+        return _ok(has_o2_correction_formula(response or "", query), kind="o2")
+    if looks_like_gas_load_query(query):
+        return _ok(has_gas_load_formula(response or ""), kind="gas")
+    return _ok(has_generic_formula_mark(response or ""), kind="generic")
 
 
 def v_num_magnitude(response: str, args: Dict[str, Any], ctx: Dict[str, Any]) -> Dict[str, Any]:

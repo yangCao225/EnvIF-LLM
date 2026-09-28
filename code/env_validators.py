@@ -29,10 +29,12 @@ QUANTITY_RE = re.compile(
     re.IGNORECASE,
 )
 PROCESS_KEYWORDS = {
-            "cod": ("活性污泥", "a2/o", "a2o", "aao", "氧化沟", "sbr", "mbr", "接触氧化", "uasb", "厌氧", "好氧"),
+    "cod": ("活性污泥", "a2/o", "a2o", "aao", "氧化沟", "sbr", "mbr", "接触氧化", "uasb", "厌氧", "好氧"),
     "nh3": ("硝化", "反硝化", "a2/o", "a2o", "ao", "sbr", "mbr", "曝气"),
     "tp": ("除磷", "化学除磷", "生物除磷", "a2/o", "a2o", "混凝"),
     "vocs": ("吸附", "催化燃烧", "rto", "rco", "冷凝", "生物滤池"),
+    "so2": ("脱硫", "石灰石", "石膏", "湿法", "半干法", "双碱"),
+    "nox": ("脱硝", "scr", "sncr", "催化剂", "氨逃逸"),
     "noise": ("隔声", "消声", "减振", "声源", "传播路径", "受声点"),
 }
 
@@ -93,6 +95,80 @@ def pollution_load_kg_d(q_m3_d: float, c_mg_l: float) -> float:
     return q_m3_d * c_mg_l * 0.001
 
 
+def gas_load_kg_d(q_m3_h: float, c_mg_m3: float) -> float:
+    """烟气量 m³/h × 浓度 mg/m³ × 24 × 10^{-6} = kg/d。不可套用废水 Q×C×0.001。"""
+    return q_m3_h * c_mg_m3 * 24.0 * 1e-6
+
+
+def dry_o2_correct(c_mg_m3: float, o2_measured_pct: float, o2_std_pct: float) -> float:
+    """基准氧折算：C' = C × (21−O2,s)/(21−O2,m)。未给含氧量不得折算。"""
+    denom = 21.0 - float(o2_measured_pct)
+    if denom == 0:
+        return 0.0
+    return float(c_mg_m3) * (21.0 - float(o2_std_pct)) / denom
+
+
+def _formula_norm(text: str) -> str:
+    t = text or ""
+    for a, b in (("−", "-"), ("–", "-"), ("——", "-"), ("（", "("), ("）", ")"), ("，", ",")):
+        t = t.replace(a, b)
+    return t
+
+
+def _float_token_re(raw: str) -> str:
+    v = float(raw)
+    if abs(v - round(v)) < 1e-9:
+        return rf"{int(round(v))}(?:\.0+)?"
+    return re.escape(str(v))
+
+
+def looks_like_o2_query(query: str) -> bool:
+    q = query or ""
+    return "基准氧" in q or ("含氧" in q and "折算" in q)
+
+
+def looks_like_gas_load_query(query: str) -> bool:
+    q = query or ""
+    has_flow = "烟气量" in q or "m³/h" in q or "m3/h" in q
+    has_job = any(k in q for k in ("负荷", "去除率", "去除负荷"))
+    return has_flow and has_job
+
+
+def has_o2_correction_formula(text: str, query: str = "") -> bool:
+    """必须出现 C' = C×(21−O2,s)/(21−O2,m) 或其正确代入，不能只写任意乘号。"""
+    t = _formula_norm(text)
+    q = _formula_norm(query)
+    if re.search(
+        r"21\s*-\s*O2\s*,?\s*s\s*\)?\s*/\s*\(?\s*21\s*-\s*O2\s*,?\s*m",
+        t,
+        re.IGNORECASE,
+    ):
+        return True
+    m_s = re.search(r"基准氧\s*([0-9]+(?:\.[0-9]+)?)", q)
+    m_m = re.search(r"含氧\s*([0-9]+(?:\.[0-9]+)?)", q)
+    if m_s and m_m:
+        pat = (
+            rf"21\s*-\s*{_float_token_re(m_s.group(1))}\s*\)?\s*/\s*"
+            rf"\(?\s*21\s*-\s*{_float_token_re(m_m.group(1))}"
+        )
+        if re.search(pat, t):
+            return True
+    return False
+
+
+def has_gas_load_formula(text: str) -> bool:
+    """烟气负荷必须写出 24×10^{-6}，不得把废水 ×0.001 当烟气换算。"""
+    t = _formula_norm(text).replace(" ", "")
+    has_24 = "24" in t
+    has_e6 = bool(re.search(r"10\^\{?-6\}?|10\^-6|1[eE]-6|10\*\*-6", t))
+    used_ww = bool(re.search(r"[×x*]\s*0\.001", _formula_norm(text))) and not has_e6
+    return has_24 and has_e6 and not used_ww
+
+
+def has_generic_formula_mark(text: str) -> bool:
+    return bool(re.search(r"(=|×|x|\*|÷|/|去除率|负荷)", text or ""))
+
+
 def hrt_hours(volume_m3: float, q_m3_d: float) -> float:
     if q_m3_d == 0:
         return 0.0
@@ -113,7 +189,12 @@ def count_cjk_chars(text: str) -> int:
     return len(re.findall(r"[\u4e00-\u9fff]", text or ""))
 
 
-def layer_format(response: str, constraints: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def layer_format(
+    response: str,
+    constraints: Optional[Dict[str, Any]] = None,
+    query: str = "",
+    gold: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     constraints = constraints or {}
     checks = {}
     text = response or ""
@@ -153,7 +234,15 @@ def layer_format(response: str, constraints: Optional[Dict[str, Any]] = None) ->
         checks["two_decimals"] = bool(re.search(r"\d+\.\d{2}(?!\d)", text))
 
     if constraints.get("require_formula"):
-        checks["formula"] = bool(re.search(r"(=|×|x|\*|÷|/|去除率|负荷)", text))
+        gold = gold or {}
+        params = gold.get("params") or {}
+        q = query or ""
+        if gold.get("o2_corrected") is not None or looks_like_o2_query(q):
+            checks["formula"] = has_o2_correction_formula(text, q)
+        elif params.get("Qg") is not None or looks_like_gas_load_query(q):
+            checks["formula"] = has_gas_load_formula(text)
+        else:
+            checks["formula"] = has_generic_formula_mark(text)
 
     passed = all(checks.values()) if checks else True
     return {"layer": "format", "passed": passed, "checks": checks}
@@ -174,6 +263,7 @@ def layer_calculation(response: str, gold: Optional[Dict[str, Any]] = None,
     cin = params.get("Cin", gold.get("cin"))
     cout = params.get("Cout", gold.get("cout"))
     q = params.get("Q", gold.get("Q"))
+    qg = params.get("Qg", gold.get("Qg"))
     volume = params.get("V", gold.get("V"))
 
     expected_rate = gold.get("removal_rate_pct")
@@ -181,7 +271,13 @@ def layer_calculation(response: str, gold: Optional[Dict[str, Any]] = None,
         expected_rate = round(removal_rate(float(cin), float(cout)), 2)
 
     expected_load = gold.get("load_kg_d")
-    if expected_load is None and q is not None and cin is not None and cout is not None:
+    if expected_load is None and qg is not None and cin is not None and cout is not None:
+        expected_load = round(gas_load_kg_d(float(qg), float(cin) - float(cout)), 2)
+    elif expected_load is None and qg is not None:
+        c_in = params.get("C", gold.get("C"))
+        if c_in is not None:
+            expected_load = round(gas_load_kg_d(float(qg), float(c_in)), 2)
+    elif expected_load is None and q is not None and cin is not None and cout is not None:
         expected_load = round(pollution_load_kg_d(float(q), float(cin) - float(cout)), 2)
     elif expected_load is None and q is not None:
         c_in = params.get("C", gold.get("C"))
@@ -231,10 +327,20 @@ def layer_calculation(response: str, gold: Optional[Dict[str, Any]] = None,
     if expected_ratio is not None:
         checks["ratio"] = _find_close_value(values, float(expected_ratio), rel_tol, max(abs_tol, 0.02))
 
+    expected_o2 = gold.get("o2_corrected")
+    if expected_o2 is None:
+        c_meas = params.get("C", gold.get("C"))
+        o2m = params.get("O2m", gold.get("O2m"))
+        o2s = params.get("O2s", gold.get("O2s"))
+        if c_meas is not None and o2m is not None and o2s is not None:
+            expected_o2 = round(dry_o2_correct(float(c_meas), float(o2m), float(o2s)), 2)
+    if expected_o2 is not None:
+        checks["o2_corrected"] = _find_close_value(values, float(expected_o2), rel_tol, max(abs_tol, 0.1))
+
     if gold.get("require_magnitude_check"):
         checks["magnitude_check"] = any(k in text for k in ("数量级", "合理性", "量级检查", "是否合理"))
 
-    if gold.get("require_two_decimals") or expected_rate is not None:
+    if gold.get("require_two_decimals") or expected_rate is not None or expected_o2 is not None:
         checks["two_decimals"] = bool(re.search(r"\d+\.\d{2}(?!\d)", text))
 
     if not checks:
@@ -281,7 +387,12 @@ def layer_knowledge(response: str, query: str = "", constraints: Optional[Dict[s
         checks["process_match"] = any(k.lower() in low for k in keywords)
 
     if constraints.get("require_secondary_pollution"):
-        checks["secondary_pollution"] = any(k in text for k in ("二次污染", "安全", "风险", "污泥", "废活性炭"))
+        checks["secondary_pollution"] = any(k in text for k in ("二次污染", "安全", "风险", "污泥", "废活性炭", "石膏", "氨逃逸"))
+
+    if constraints.get("forbid_wastewater_formula_on_gas") or ("烟气量" in q and "负荷" in q):
+        used_ww = bool(re.search(r"Q×C×0\.001|Q×\(C_in-C_out\)×0\.001", text))
+        denied = any(k in text for k in ("不可把烟气量当成污水量", "不得套用废水", "不可套用废水"))
+        checks["no_wastewater_formula_on_gas"] = (not used_ww) or denied
 
     passed = all(checks.values()) if checks else True
     return {"layer": "knowledge", "passed": passed, "checks": checks}
@@ -296,7 +407,12 @@ def evaluate_response(
     rel_tol: float = 0.02,
 ) -> Dict[str, Any]:
     gold = gold or {}
-    fmt = layer_format(response, format_constraints or gold.get("format_constraints"))
+    fmt = layer_format(
+        response,
+        format_constraints or gold.get("format_constraints"),
+        query=query,
+        gold=gold,
+    )
     calc = layer_calculation(response, gold, rel_tol=rel_tol)
     know = layer_knowledge(response, query, knowledge_constraints or gold.get("knowledge_constraints"))
     out = {
@@ -325,7 +441,12 @@ def classify_error_types(
         types.append("format_error")
     if fmt.get("insufficient_prefix") is False:
         types.append("missing_insufficient")
-    if calc.get("removal_rate") is False or calc.get("load_kg_d") is False or calc.get("hrt_h") is False:
+    if (
+        calc.get("removal_rate") is False
+        or calc.get("load_kg_d") is False
+        or calc.get("hrt_h") is False
+        or calc.get("o2_corrected") is False
+    ):
         types.append("calc_error")
     if calc.get("load_unit") is False:
         types.append("unit_error")

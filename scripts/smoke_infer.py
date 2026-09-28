@@ -50,7 +50,7 @@ def main():
         text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         inputs = tokenizer(text, return_tensors="pt").to(model.device)
         with torch.no_grad():
-            outputs = model.generate(**inputs, max_new_tokens=280, temperature=0.2, do_sample=False)
+            outputs = model.generate(**inputs, max_new_tokens=280, do_sample=False, pad_token_id=tokenizer.eos_token_id)
         response = tokenizer.decode(outputs[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
         print("\n问:", prompt[:160])
         print("答:", response[:600])

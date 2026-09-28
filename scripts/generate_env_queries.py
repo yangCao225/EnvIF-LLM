@@ -5,10 +5,13 @@ from __future__ import annotations
 import json
 import os
 import random
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "data"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from air_domain import build_all_air  # noqa: E402
 
 TRAIN_Q = [5000, 8000, 10000, 12000, 15000, 20000, 25000, 30000, 40000, 50000]
 TEST_Q = [6000, 9000, 11000, 18000, 22000, 35000, 45000, 80000]
@@ -28,6 +31,10 @@ PLANTS = [
 CASE_PLANTS = [
     "江北水质净化厂", "滨海工业园污水厂", "老城区合流制调蓄厂", "高新区再生水厂",
 ]
+TRAIN_QG = [6500, 8200, 11000, 14500, 19000, 24000, 32000]
+TEST_QG = [7800, 9800, 13200, 20500, 28000]
+AIR_SITES = ["临港燃煤热电", "河西烧结机头", "南山水泥窑", "东部垃圾焚烧", "园区工业锅炉", "焦化干熄焦"]
+AIR_CASE_SITES = ["滨江热电烟气岛", "北郊烧结机尾", "西山水泥窑尾", "港区焚烧线"]
 
 
 def idx(split: str, i: int) -> int:
@@ -272,38 +279,44 @@ def build_monitoring(split: str) -> list:
     return rows
 
 
-def build_air(split: str) -> list:
-    rows = []
-    n = 90 if split == "train" else 32
-    shops = ["喷漆车间", "印刷车间", "制药发酵", "橡胶硫化", "储罐区", "污水站除臭"]
-    for raw_i in range(n):
-        i = idx(split, raw_i)
-        c = 70 + i * 45
-        q = 6000 + i * 850
-        nox = 60 + i * 12
-        h2s = 3 + i
-        dust = 6 + i * 2
-        shop = shops[i % len(shops)]
-        variants = [
-            f"{shop}风量{q} m³/h、VOCs约{c} mg/m³。比较活性炭吸附与催化燃烧的适用条件、能耗和二次污染风险，按优先、备选、不推荐三级输出。",
-            f"{shop}喷漆废气VOCs进口浓度{c} mg/m³、风量{q} m³/h。请估算去除负荷并评估爆炸下限风险，浓度单位只能用 mg/m³。",
-            f"{shop}锅炉烟气NOx={nox} mg/m³、风量{q} m³/h。请比较SNCR与SCR，必须说明二次污染与运行安全；未给出排放标准时标注需核实现行标准。",
-            f"{shop}恶臭处理：进气H2S约{h2s} mg/m³、风量{q} m³/h。请从吸收、生物滤池和离子氧化中排序，按优先、备选、不推荐输出。",
-            f"拟用RTO处理{shop} {c} mg/m³ VOCs、风量{q} m³/h。请给出关键假设、推荐方案和风险点，不得虚构设备参数。",
-            f"{shop}除尘器后颗粒物为{dust} mg/m³。现有数据不足判断是否达标，请以“信息不足”开头并列出缺失参数。",
-        ]
-        query = variants[i % len(variants)] + f" 台账编号 {i:04d}。"
-        gold = None
-        if "信息不足" in query:
-            gold = {"format_constraints": {"must_start_insufficient": True}}
-        if "去除负荷" in query:
-            gold = {
-                "params": {"Q": q * 24, "C": c},
-                "load_kg_d": round(q * 24 * c * 1e-9 * 1000, 2),
-            }
-        rows.append(item(query, "air_pollution", "medium", ["大气污染", shop], gold, split))
-    return rows
+def _gas_removal_gold(qg, cin, cout, family=None):
+    rate = round((cin - cout) / cin * 100, 2)
+    load = round(qg * (cin - cout) * 24 * 1e-6, 2)
+    kc = {
+        "forbid_fabricated_standard": True,
+        "require_secondary_pollution": True,
+        "forbid_wastewater_formula_on_gas": True,
+    }
+    if family:
+        kc["process_family"] = family
+    return {
+        "params": {"Qg": qg, "Cin": cin, "Cout": cout},
+        "removal_rate_pct": rate,
+        "load_kg_d": load,
+        "require_two_decimals": True,
+        "require_magnitude_check": True,
+        "format_constraints": {"require_formula": True},
+        "knowledge_constraints": kc,
+    }
 
+
+def _air_process_gold(family):
+    return {
+        "knowledge_constraints": {
+            "forbid_fabricated_standard": True,
+            "require_secondary_pollution": True,
+            "process_family": family,
+        }
+    }
+
+
+def build_air(split: str) -> list:
+    """大气污染主线：计算 / 工艺 / 诊断 / 监测 / 烟气运行摘录。"""
+    return build_all_air(split, item, idx, _gas_removal_gold, _air_process_gold)
+
+
+def build_air_sn(split: str) -> list:
+    return []
 
 def build_solid(split: str) -> list:
     rng = random.Random(17 if split == "train" else 171)
@@ -436,6 +449,7 @@ def main():
     train += build_diagnosis("train")
     train += build_monitoring("train")
     train += build_air("train")
+    train += build_air_sn("train")
     train += build_solid("train")
     train += build_noise("train")
     train += build_eia("train")
@@ -448,6 +462,7 @@ def main():
     test += build_diagnosis("test")
     test += build_monitoring("test")
     test += build_air("test")
+    test += build_air_sn("test")
     test += build_solid("test")
     test += build_noise("test")
     test += build_eia("test")

@@ -121,6 +121,7 @@ def register_datasets(dest_dir: str):
 
 def main():
     dest = os.path.join(ROOT, "LlamaFactory", "data")
+    os.makedirs(dest, exist_ok=True)
     prepare_sft(dest)
     prepare_dpo(dest)
     register_datasets(dest)

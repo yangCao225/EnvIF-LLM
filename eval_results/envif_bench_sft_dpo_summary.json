@@ -1,0 +1,47 @@
+{
+  "n_total": 72,
+  "n_auto": 68,
+  "prompt_accuracy": 0.2353,
+  "constraint_accuracy": 0.6221,
+  "by_family": {
+    "content": 0.1667,
+    "domain": 0.75,
+    "format": 0.5,
+    "multi": 0.0455,
+    "numerical": 0.1818
+  },
+  "by_task": {
+    "environmental_calculation": 0.1724,
+    "environmental_monitoring": 0.3333,
+    "format_constraint": 0.0,
+    "multi_step_reasoning": 0.25,
+    "pollution_control": 0.0,
+    "safety_constraint": 0.5,
+    "terminology_explanation": 0.0,
+    "wastewater_treatment": 0.6
+  },
+  "by_verifier": {
+    "content.explain_term": 0.0,
+    "content.missing_params": 0.0,
+    "content.must_include": 0.3333,
+    "domain.allowed_units": 0.0,
+    "domain.no_fabricated_standard": 1.0,
+    "domain.no_false_certainty": 1.0,
+    "domain.ph_dimensionless": 0.0,
+    "domain.process_match": 0.5,
+    "domain.safety": 0.4,
+    "format.arrow_process": 0.6667,
+    "format.headers": 0.0,
+    "format.insufficient_prefix": 0.5,
+    "format.length": 0.0,
+    "format.n_causes": 0.6667,
+    "format.n_steps": 1.0,
+    "format.table": 1.0,
+    "numerical.formula": 1.0,
+    "numerical.magnitude": 1.0,
+    "numerical.two_decimals": 0.9615,
+    "numerical.value": 0.3421
+  },
+  "tag": "sft_dpo",
+  "mode": "pred"
+}

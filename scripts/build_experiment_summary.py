@@ -74,6 +74,20 @@ def load_json(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def category_counts(path: Path) -> dict:
+    from collections import Counter
+    c = Counter()
+    if not path.exists():
+        return {}
+    with path.open(encoding="utf-8") as f:
+        for line in f:
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            c[row.get("category") or "unknown"] += 1
+    return dict(sorted(c.items()))
+
+
 def main():
     log_dir = ROOT / "logs"
     summary = {
@@ -101,25 +115,43 @@ def main():
             "train": source_counts(ROOT / "data" / "environmental_engineering_queries.jsonl"),
             "test": source_counts(ROOT / "data" / "environmental_engineering_test.jsonl"),
         },
+        "categories": {
+            "train": category_counts(ROOT / "data" / "environmental_engineering_queries.jsonl"),
+            "test": category_counts(ROOT / "data" / "environmental_engineering_test.jsonl"),
+        },
         "construction": load_json(ROOT / "output" / "envif_offline_meta.json"),
+        "pipeline": load_json(ROOT / "output" / "local_pipeline_meta.json"),
         "adapter": load_json(ROOT / "adapters" / "envif-qwen2.5-1.5b-sft" / "envif_train_meta.json"),
+        "adapter_v2": load_json(ROOT / "adapters" / "envif-qwen2.5-1.5b-sft-v2" / "envif_train_meta.json"),
+        "dpo_adapter": load_json(ROOT / "adapters" / "envif-qwen2.5-1.5b-dpo" / "envif_train_meta.json"),
+        "dpo_adapter_v2": load_json(ROOT / "adapters" / "envif-qwen2.5-1.5b-dpo-v2" / "envif_train_meta.json"),
         "training": {
             "sft_learning_rate": 5.0e-5,
             "dpo_learning_rate": 5.0e-6,
             "sft_last_loss": None,
             "sft_mean_loss": None,
             "dpo_last_loss": None,
+            "dpo_mean_loss": None,
             "sft_time": None,
             "dpo_time": None,
             "sft_adapter": None,
+            "dpo_adapter": None,
         },
         "eval": {
-            "base": None,
-            "sft": None,
-            "sft_dpo": None,
+            "base": load_json(ROOT / "eval_results" / "test_base_summary.json"),
+            "sft": load_json(ROOT / "eval_results" / "test_sft_summary.json"),
+            "sft_dpo": load_json(ROOT / "eval_results" / "test_sft_dpo_summary.json"),
             "quantized": None,
             "tlr_ablation": load_json(ROOT / "output" / "envif_ablation.json"),
             "envif_bench_oracle": load_json(ROOT / "eval_results" / "envif_bench_oracle_summary.json"),
+            "envif_bench_base": load_json(ROOT / "eval_results" / "envif_bench_base_summary.json"),
+            "envif_bench_sft": load_json(ROOT / "eval_results" / "envif_bench_sft_summary.json"),
+            "envif_bench_sft_dpo": load_json(ROOT / "eval_results" / "envif_bench_sft_dpo_summary.json"),
+            "envif_bench_sft_v2": load_json(ROOT / "eval_results" / "envif_bench_sft_v2_summary.json"),
+            "envif_bench_sft_dpo_v2": load_json(ROOT / "eval_results" / "envif_bench_sft_dpo_v2_summary.json"),
+            "envif_bench_base_air": load_json(ROOT / "eval_results" / "envif_bench_base_air_summary.json"),
+            "envif_bench_sft_air": load_json(ROOT / "eval_results" / "envif_bench_sft_air_summary.json"),
+            "envif_bench_sft_dpo_air": load_json(ROOT / "eval_results" / "envif_bench_sft_dpo_air_summary.json"),
         },
         "deploy": {
             "merged_model_size": None,
@@ -133,10 +165,37 @@ def main():
         summary["training"]["sft_adapter"] = "adapters/envif-qwen2.5-1.5b-sft"
         summary["training"]["sft_mean_loss"] = adapter_meta.get("train_loss")
         summary["training"]["sft_last_loss"] = adapter_meta.get("last_step_loss") or adapter_meta.get("train_loss")
-    if (log_dir / "sft_train.log").exists() or (log_dir / "dpo_train.log").exists():
-        summary["status"] = "from_logs"
+    dpo_meta = summary.get("dpo_adapter") or {}
+    if dpo_meta:
+        summary["training"]["dpo_adapter"] = "adapters/envif-qwen2.5-1.5b-dpo"
+        summary["training"]["dpo_mean_loss"] = dpo_meta.get("train_loss")
+        summary["training"]["dpo_last_loss"] = dpo_meta.get("last_step_loss")
+    adapter_v2 = summary.get("adapter_v2") or {}
+    if adapter_v2:
+        summary["training"]["sft_v2_adapter"] = "adapters/envif-qwen2.5-1.5b-sft-v2"
+        summary["training"]["sft_v2_mean_loss"] = adapter_v2.get("train_loss")
+        summary["training"]["sft_v2_last_loss"] = adapter_v2.get("last_step_loss") or adapter_v2.get("train_loss")
+    dpo_v2 = summary.get("dpo_adapter_v2") or {}
+    if dpo_v2:
+        summary["training"]["dpo_v2_adapter"] = "adapters/envif-qwen2.5-1.5b-dpo-v2"
+        summary["training"]["dpo_v2_mean_loss"] = dpo_v2.get("train_loss")
+        summary["training"]["dpo_v2_last_loss"] = dpo_v2.get("last_step_loss")
+    if summary["eval"].get("base") and summary["eval"].get("sft"):
+        summary["status"] = "local_pipeline_evaled"
+    elif summary["eval"].get("envif_bench_sft_dpo_v2"):
+        summary["status"] = "dpo_v2_evaled"
+    elif summary["eval"].get("envif_bench_sft_v2"):
+        summary["status"] = "sft_v2_evaled"
+    elif summary["eval"].get("envif_bench_sft_dpo"):
+        summary["status"] = "dpo_lora_evaled"
+    elif summary["eval"].get("envif_bench_sft") and (ROOT / "adapters" / "envif-qwen2.5-1.5b-dpo" / "adapter_model.safetensors").exists():
+        summary["status"] = "dpo_lora_ready"
+    elif summary["eval"].get("envif_bench_sft") and summary["eval"].get("envif_bench_base"):
+        summary["status"] = "sft_lora_evaled"
     elif (ROOT / "adapters" / "envif-qwen2.5-1.5b-sft" / "adapter_model.safetensors").exists():
         summary["status"] = "sft_lora_ready"
+    elif (log_dir / "sft_train.log").exists() or (log_dir / "dpo_train.log").exists():
+        summary["status"] = "from_logs"
     elif summary["counts"]["sft"] or summary["counts"]["dpo_pairs"]:
         summary["status"] = "envif_offline_ready"
     OUT.parent.mkdir(parents=True, exist_ok=True)

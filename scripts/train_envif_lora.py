@@ -13,6 +13,7 @@ from pathlib import Path
 
 os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
+os.environ.setdefault("SAFETENSORS_FAST_GPU", "1")
 
 ROOT = Path(__file__).resolve().parents[1]
 SFT_PATH = ROOT / "output" / "IF_sft_data.json"
@@ -38,8 +39,9 @@ def download_base() -> str:
         return hf_dl(MODEL_ID, local_dir=str(BASE_DIR), resume_download=True)
 
 
-def load_sft() -> list[dict]:
-    data = json.loads(SFT_PATH.read_text(encoding="utf-8"))
+def load_sft(path: Path | None = None) -> list[dict]:
+    sft_path = path or SFT_PATH
+    data = json.loads(sft_path.read_text(encoding="utf-8"))
     rows = []
     for item in data:
         inst = (item.get("instruction") or "").strip()
@@ -47,7 +49,7 @@ def load_sft() -> list[dict]:
         if inst and out:
             rows.append({"instruction": inst, "output": out})
     if not rows:
-        raise SystemExit(f"SFT 为空: {SFT_PATH}")
+        raise SystemExit(f"SFT 为空: {sft_path}")
     print(f"SFT 样本 {len(rows)}")
     return rows
 
@@ -82,37 +84,68 @@ def tokenize_rows(rows, tokenizer, max_len: int):
     return toks
 
 
-def try_train(base_path: str, rows: list, max_len: int, use_8bit: bool) -> Path:
+def try_train(
+    base_path: str,
+    rows: list,
+    max_len: int,
+    use_8bit: bool,
+    out_dir: Path,
+    epochs: float,
+    lr: float,
+    resume: str = "",
+) -> Path:
+    import gc
     import torch
-    from torch.utils.data import Dataset
-    from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
-    from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments, DataCollatorForSeq2Seq
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    gc.collect()
+    torch.cuda.empty_cache()
 
     tokenizer = AutoTokenizer.from_pretrained(base_path, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+    # 先分词再加载权重，避免 CPU 上同时摊开模型和长文本
+    tokenized = tokenize_rows(rows, tokenizer, max_len)
 
-    kw = dict(trust_remote_code=True, device_map="auto")
+    kw = dict(
+        trust_remote_code=True,
+        low_cpu_mem_usage=True,
+        device_map={"": 0},
+    )
     if use_8bit:
-        kw.update(load_in_8bit=True)
+        kw["load_in_8bit"] = True
+        kw.pop("device_map", None)
+        kw["device_map"] = "auto"
     else:
-        kw.update(torch_dtype=torch.float16)
-    print(f"加载模型 8bit={use_8bit} max_len={max_len}")
+        kw["torch_dtype"] = torch.float16
+    print(f"加载模型 8bit={use_8bit} max_len={max_len} device_map={kw.get('device_map')}", flush=True)
     model = AutoModelForCausalLM.from_pretrained(base_path, **kw)
     model.config.use_cache = False
+
+    from torch.utils.data import Dataset
+    from peft import LoraConfig, PeftModel, get_peft_model, prepare_model_for_kbit_training
+    from transformers import Trainer, TrainingArguments, DataCollatorForSeq2Seq
+
     if use_8bit:
         model = prepare_model_for_kbit_training(model)
     model.gradient_checkpointing_enable()
+    if hasattr(model, "enable_input_require_grads"):
+        model.enable_input_require_grads()
 
-    lora = LoraConfig(
-        r=8,
-        lora_alpha=16,
-        lora_dropout=0.05,
-        bias="none",
-        task_type="CAUSAL_LM",
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
-    )
-    model = get_peft_model(model, lora)
+    resume = (resume or "").strip()
+    if resume and Path(resume, "adapter_config.json").is_file():
+        model = PeftModel.from_pretrained(model, resume, is_trainable=True)
+        print(f"续训 LoRA: {resume}", flush=True)
+    else:
+        lora = LoraConfig(
+            r=8,
+            lora_alpha=16,
+            lora_dropout=0.05,
+            bias="none",
+            task_type="CAUSAL_LM",
+            target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+        )
+        model = get_peft_model(model, lora)
     model.print_trainable_parameters()
 
     class TorchListDataset(Dataset):
@@ -125,7 +158,7 @@ def try_train(base_path: str, rows: list, max_len: int, use_8bit: bool) -> Path:
         def __getitem__(self, i):
             return self.rows[i]
 
-    ds = TorchListDataset(tokenize_rows(rows, tokenizer, max_len))
+    ds = TorchListDataset(tokenized)
     collator = DataCollatorForSeq2Seq(tokenizer, padding=True, pad_to_multiple_of=8)
 
     out_tmp = ROOT / "models" / "model_c_sft"
@@ -133,8 +166,8 @@ def try_train(base_path: str, rows: list, max_len: int, use_8bit: bool) -> Path:
         output_dir=str(out_tmp),
         per_device_train_batch_size=1,
         gradient_accumulation_steps=8,
-        num_train_epochs=2,
-        learning_rate=5e-5,
+        num_train_epochs=epochs,
+        learning_rate=lr,
         lr_scheduler_type="cosine",
         warmup_ratio=0.05,
         logging_steps=5,
@@ -149,50 +182,91 @@ def try_train(base_path: str, rows: list, max_len: int, use_8bit: bool) -> Path:
     )
     trainer = Trainer(model=model, args=args, train_dataset=ds, data_collator=collator)
     result = trainer.train()
-    ADAPTER_DIR.mkdir(parents=True, exist_ok=True)
-    trainer.model.save_pretrained(str(ADAPTER_DIR))
-    tokenizer.save_pretrained(str(ADAPTER_DIR))
-    cfg_path = ADAPTER_DIR / "adapter_config.json"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    trainer.model.save_pretrained(str(out_dir))
+    tokenizer.save_pretrained(str(out_dir))
+    cfg_path = out_dir / "adapter_config.json"
     cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
     cfg["base_model_name_or_path"] = MODEL_ID
     cfg_path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     hist = trainer.state.log_history or []
     step_losses = [h["loss"] for h in hist if "loss" in h]
+    prior_epochs = 0.0
+    if resume:
+        prev_meta = Path(resume) / "envif_train_meta.json"
+        if prev_meta.is_file():
+            try:
+                prior_epochs = float(json.loads(prev_meta.read_text(encoding="utf-8")).get("epochs") or 0)
+            except Exception:
+                prior_epochs = 0.0
     meta = {
         "base_model": MODEL_ID,
         "finetuning": "lora",
         "lora_rank": 8,
         "lora_alpha": 16,
-        "epochs": 2,
-        "learning_rate": 5e-5,
+        "epochs": prior_epochs + epochs,
+        "this_run_epochs": epochs,
+        "prior_epochs": prior_epochs or None,
+        "learning_rate": lr,
         "n_sft": len(rows),
         "max_length": max_len,
         "load_in_8bit": use_8bit,
         "dataset": "output/IF_sft_data.json",
+        "resume_adapter": resume or None,
         "train_loss": getattr(result, "training_loss", None),
         "last_step_loss": step_losses[-1] if step_losses else None,
-        "note": "EnvIF SFT LoRA on wastewater/monitoring instruction-following data. Not a full expert model.",
+        "note": (
+            "EnvIF SFT v2 LoRA: wastewater + monitoring + air (SO2/NOx, FGD/SCR, O2 correction). "
+            "Not a full expert model. Does not overwrite SFT v1."
+            + (f" Continued from {resume}." if resume else "")
+            if "v2" in str(out_dir)
+            else "EnvIF SFT LoRA on wastewater/monitoring instruction-following data. Not a full expert model."
+        ),
     }
-    (ADAPTER_DIR / "envif_train_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"已保存 LoRA -> {ADAPTER_DIR}")
-    return ADAPTER_DIR
+    (out_dir / "envif_train_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"已保存 LoRA -> {out_dir}")
+    return out_dir
 
 
 def main():
+    import argparse
+
     import torch
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--out", default=str(ADAPTER_DIR), help="LoRA 输出目录，v2 请另指定以免覆盖 v1")
+    parser.add_argument("--epochs", type=float, default=2)
+    parser.add_argument("--lr", type=float, default=5e-5)
+    parser.add_argument("--sft-path", default=str(SFT_PATH))
+    parser.add_argument("--max-len", type=int, default=0, help=">0 时只试这一档，避免同进程反复加载")
+    parser.add_argument("--fp16", action="store_true", help="不用 8bit，降低 CPU/页面文件压力")
+    parser.add_argument("--resume", default="", help="已有 LoRA 目录，续训而不覆盖 v1")
+    args = parser.parse_args()
     if not torch.cuda.is_available():
         raise SystemExit("需要 CUDA GPU")
     print("cuda", torch.cuda.get_device_name(0))
     base = download_base()
-    rows = load_sft()
+    rows = load_sft(Path(args.sft_path))
+    out_dir = Path(args.out)
     last_err = None
-    for use_8bit, max_len in ((True, 1024), (True, 768), (False, 512)):
+    if args.max_len:
+        configs = ((not args.fp16, args.max_len),)
+    elif args.fp16:
+        configs = ((False, 768), (False, 512))
+    else:
+        configs = ((True, 1024), (True, 768), (False, 512))
+    for use_8bit, max_len in configs:
         try:
-            try_train(base, rows, max_len, use_8bit)
+            try_train(
+                base, rows, max_len, use_8bit, out_dir, args.epochs, args.lr,
+                resume=args.resume,
+            )
             return
         except Exception as e:
             last_err = e
             print(f"失败 8bit={use_8bit} max_len={max_len}: {type(e).__name__}: {e}")
+            import gc
+            gc.collect()
             torch.cuda.empty_cache()
             continue
     raise SystemExit(f"训练失败: {last_err}")

@@ -32,19 +32,31 @@ def main():
     args = parser.parse_args()
 
     bench = load_jsonl(Path(args.bench))
-    preds = {}
+    # 重建 Bench 时题号会后移，优先按题目原文配答案；只有预测里没有 query 时才用 id
+    by_query, by_id = {}, {}
     if args.pred_file:
         for row in load_jsonl(Path(args.pred_file)):
-            key = row.get("id") or row.get("query")
-            preds[key] = row.get("response") or row.get("output") or ""
+            resp = row.get("response") or row.get("output") or ""
+            if row.get("query"):
+                by_query[row["query"]] = resp
+            elif row.get("id"):
+                by_id[row["id"]] = resp
 
     detailed = []
+    missing = []
     for item in bench:
         if args.oracle:
             resp = item.get("reference") or ""
+        elif item["query"] in by_query:
+            resp = by_query[item["query"]]
+        elif item["id"] in by_id:
+            resp = by_id[item["id"]]
         else:
-            resp = preds.get(item["id"], preds.get(item["query"], ""))
+            missing.append(item["id"])
+            resp = ""
         detailed.append({**evaluate_item(item, resp), "response": resp})
+    if missing:
+        print(f"警告：{len(missing)} 道题没有预测，按空答案计分：{missing}", file=sys.stderr)
 
     summary = aggregate(detailed)
     summary["tag"] = args.tag

@@ -1,0 +1,18 @@
+{
+  "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "finetuning": "lora",
+  "lora_rank": 8,
+  "lora_alpha": 16,
+  "epochs": 3.0,
+  "this_run_epochs": 2.0,
+  "prior_epochs": 1.0,
+  "learning_rate": 3e-05,
+  "n_sft": 1020,
+  "max_length": 768,
+  "load_in_8bit": false,
+  "dataset": "output/IF_sft_data.json",
+  "resume_adapter": "adapters/envif-qwen2.5-1.5b-sft-v2-e1",
+  "train_loss": 0.08507095352251781,
+  "last_step_loss": 0.0184,
+  "note": "EnvIF SFT v2 LoRA: wastewater + monitoring + air (SO2/NOx, FGD/SCR, O2 correction). Not a full expert model. Does not overwrite SFT v1. Continued from adapters/envif-qwen2.5-1.5b-sft-v2-e1."
+}

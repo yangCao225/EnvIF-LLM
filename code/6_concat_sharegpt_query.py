@@ -90,11 +90,11 @@ def generate_queries_with_llm(count: int = 500) -> list:
     logger.info(f"使用 LLM 生成 {count} 条{DOMAIN_NAME}查询...")
     prompt = f"""请生成{count}条中文环境工程用户问题，必须全部属于环境工程。
 硬性要求：
-1. 覆盖污水处理与水污染控制、环境监测、大气污染、固体废物、噪声、环评与清洁生产。
-2. 至少30%为带具体数值的工程计算题（去除率、污染负荷、HRT、F/M等）。
-3. 至少20%为工艺异常诊断题。
+1. 覆盖污水处理与水污染控制、环境监测、大气污染（含硫含氮烟气、VOCs、基准氧折算）、固体废物、噪声、环评与清洁生产。
+2. 至少30%为带具体数值的工程计算题（去除率、污染负荷、烟气负荷 Qg×C×24×10^{-6}、HRT、F/M、基准氧折算等）。
+3. 至少20%为工艺异常诊断题（污水与烟气治理均要覆盖）。
 4. 不要生成医学、编程、金融、法律、日常生活闲聊问题。
-5. 每行一个JSON：{{"query":"...","category":"wastewater_calculation|process_diagnosis|monitoring_analysis|air_pollution|solid_waste|noise_control|eia_cleaner_production","difficulty":"easy|medium|hard","required_knowledge":["..."]}}
+5. 每行一个JSON：{{"query":"...","category":"wastewater_calculation|process_diagnosis|monitoring_analysis|air_calculation|air_process|air_diagnosis|air_pollution|solid_waste|noise_control|eia_cleaner_production","difficulty":"easy|medium|hard","required_knowledge":["..."]}}
 只输出JSON行，不要编号。"""
 
     queries = []

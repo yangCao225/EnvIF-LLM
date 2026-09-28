@@ -1,0 +1,48 @@
+{
+  "n_total": 79,
+  "n_auto": 75,
+  "prompt_accuracy": 0.3733,
+  "constraint_accuracy": 0.6684,
+  "by_family": {
+    "content": 0.6667,
+    "domain": 0.75,
+    "format": 0.6667,
+    "multi": 0.24,
+    "numerical": 0.2
+  },
+  "by_task": {
+    "air_pollution": 0.4286,
+    "environmental_calculation": 0.1724,
+    "environmental_monitoring": 0.3333,
+    "format_constraint": 0.2,
+    "multi_step_reasoning": 0.5,
+    "pollution_control": 0.75,
+    "safety_constraint": 0.5,
+    "terminology_explanation": 0.3333,
+    "wastewater_treatment": 0.8
+  },
+  "by_verifier": {
+    "content.explain_term": 0.3333,
+    "content.missing_params": 0.5,
+    "content.must_include": 0.4,
+    "domain.allowed_units": 0.5,
+    "domain.no_fabricated_standard": 0.9375,
+    "domain.no_false_certainty": 1.0,
+    "domain.ph_dimensionless": 0.0,
+    "domain.process_match": 0.5,
+    "domain.safety": 0.7143,
+    "format.arrow_process": 0.6667,
+    "format.headers": 0.2857,
+    "format.insufficient_prefix": 1.0,
+    "format.length": 0.0,
+    "format.n_causes": 0.8571,
+    "format.n_steps": 1.0,
+    "format.table": 1.0,
+    "numerical.formula": 0.9259,
+    "numerical.magnitude": 1.0,
+    "numerical.two_decimals": 0.9,
+    "numerical.value": 0.3636
+  },
+  "tag": "sft_v2",
+  "mode": "pred"
+}

@@ -1,13 +1,13 @@
 {
-  "status": "sft_lora_ready",
-  "generated_at": "2026-08-27T19:49:44",
+  "status": "sft_v2_evaled",
+  "generated_at": "2026-09-28T14:31:10",
   "note": "文档与讲义只允许引用本文件中的数字。未跑通的 GPU 训练字段保持 null。SFT/DPO 条数若来自 EnvIF-TLR 离线构造，不是 LoRA Loss。",
   "method": "EnvIF-TLR (Typed Layered Reward on AutoIF)",
   "domain": "环境工程",
   "counts": {
-    "seed_instructions": 45,
-    "domain_queries": 798,
-    "heldout_test": 309,
+    "seed_instructions": 52,
+    "domain_queries": 1020,
+    "heldout_test": 389,
     "augment_instructions": 0,
     "eval_func_rft": 0,
     "cross_validation": 0,
@@ -15,26 +15,74 @@
     "query_rft": 0,
     "query_rft_score": 0,
     "query_score_filter": 0,
-    "sft": 798,
-    "dpo_pairs": 2394,
-    "envif_bench": 72
+    "sft": 1020,
+    "dpo_pairs": 2667,
+    "envif_bench": 79
   },
   "query_source": {
     "train": {
-      "template": 621,
-      "synthetic_plant_case": 177
+      "template": 763,
+      "synthetic_plant_case": 257
     },
     "test": {
-      "template": 224,
-      "synthetic_plant_case": 85
+      "template": 274,
+      "synthetic_plant_case": 115
+    }
+  },
+  "categories": {
+    "train": {
+      "air_calculation": 180,
+      "air_diagnosis": 50,
+      "air_process": 72,
+      "eia_cleaner_production": 60,
+      "monitoring_analysis": 75,
+      "monitoring_report": 25,
+      "noise_control": 24,
+      "process_diagnosis": 80,
+      "solid_waste": 55,
+      "wastewater_calculation": 259,
+      "wastewater_process": 140
+    },
+    "test": {
+      "air_calculation": 64,
+      "air_diagnosis": 20,
+      "air_process": 24,
+      "eia_cleaner_production": 24,
+      "monitoring_analysis": 26,
+      "monitoring_report": 10,
+      "process_diagnosis": 32,
+      "solid_waste": 18,
+      "wastewater_calculation": 123,
+      "wastewater_process": 48
     }
   },
   "construction": {
     "mode": "envif_tlr_offline",
-    "sft": 798,
-    "dpo_pairs": 2394,
+    "sft": 1020,
+    "dpo_pairs": 2667,
     "skipped_low_score": 0,
-    "note": "由带单位计算层 + 分类型负样本构造，不是教师模型蒸馏。SFT LoRA loss 见 training / adapter 字段，不是本条。"
+    "note": "由带单位计算层 + 分类型难负样本构造，不是教师模型蒸馏。优先 calc/unit/知识近误，少用 format_error。SFT LoRA loss 见 training / adapter 字段，不是本条。"
+  },
+  "pipeline": {
+    "mode": "envif_tlr_local",
+    "started_at": "2026-09-07T18:16:59",
+    "teacher_7b": false,
+    "vllm": false,
+    "llamafactory_train": false,
+    "note": "本机全流程。数据来自 EnvIF-TLR 离线构造，不是 7B 教师蒸馏。",
+    "steps": {
+      "cpu_tests": true,
+      "cpu_tests_tlr": true,
+      "cpu_tests_bench": true,
+      "construct": true,
+      "prepare_lf": true,
+      "ablate": true,
+      "bench_oracle": true,
+      "smoke": false
+    },
+    "cuda": true,
+    "smoke_error": "os error 1455: Windows 页面文件不足以映射 1.5B safetensors",
+    "finished_at": "2026-09-07T18:18:04"
   },
   "adapter": {
     "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
@@ -51,15 +99,56 @@
     "last_step_loss": 0.0278,
     "note": "EnvIF SFT LoRA on wastewater/monitoring instruction-following data. Not a full expert model."
   },
+  "adapter_v2": {
+    "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
+    "finetuning": "lora",
+    "lora_rank": 8,
+    "lora_alpha": 16,
+    "epochs": 3.0,
+    "this_run_epochs": 2.0,
+    "prior_epochs": 1.0,
+    "learning_rate": 3e-05,
+    "n_sft": 1020,
+    "max_length": 768,
+    "load_in_8bit": false,
+    "dataset": "output/IF_sft_data.json",
+    "resume_adapter": "adapters/envif-qwen2.5-1.5b-sft-v2-e1",
+    "train_loss": 0.08507095352251781,
+    "last_step_loss": 0.0184,
+    "note": "EnvIF SFT v2 LoRA: wastewater + monitoring + air (SO2/NOx, FGD/SCR, O2 correction). Not a full expert model. Does not overwrite SFT v1. Continued from adapters/envif-qwen2.5-1.5b-sft-v2-e1."
+  },
+  "dpo_adapter": {
+    "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
+    "finetuning": "dpo_lora",
+    "started_from": "adapters/envif-qwen2.5-1.5b-sft",
+    "lora_rank": 8,
+    "epochs": 1,
+    "learning_rate": 5e-06,
+    "n_pairs": 400,
+    "max_length": 512,
+    "load_in_8bit": true,
+    "dataset": "output/dpo_pairs.jsonl",
+    "source": "envif_tlr_offline",
+    "train_loss": 7.41442743958487e-06,
+    "last_step_loss": 0.0,
+    "rewards_accuracies": 1.0,
+    "note": "Offline typed DPO on EnvIF pairs. Loss near 0 because rejected templates are already easy to rank. Not teacher-distilled. Not an expert model."
+  },
+  "dpo_adapter_v2": null,
   "training": {
     "sft_learning_rate": 5e-05,
     "dpo_learning_rate": 5e-06,
     "sft_last_loss": 0.0278,
     "sft_mean_loss": 0.5238734053820372,
-    "dpo_last_loss": null,
+    "dpo_last_loss": 0.0,
+    "dpo_mean_loss": 7.41442743958487e-06,
     "sft_time": null,
     "dpo_time": null,
-    "sft_adapter": "adapters/envif-qwen2.5-1.5b-sft"
+    "sft_adapter": "adapters/envif-qwen2.5-1.5b-sft",
+    "dpo_adapter": "adapters/envif-qwen2.5-1.5b-dpo",
+    "sft_v2_adapter": "adapters/envif-qwen2.5-1.5b-sft-v2",
+    "sft_v2_mean_loss": 0.08507095352251781,
+    "sft_v2_last_loss": 0.0184
   },
   "eval": {
     "base": null,
@@ -70,66 +159,73 @@
       "n_pairs": 800,
       "ranking_win_rate": {
         "format": {
-          "all": 0.3212,
+          "all": 0.335,
           "calc_error": 0.0,
-          "fabricated_standard": 0.3174,
-          "false_certainty": 0.3289,
-          "format_error": 0.412,
-          "unit_error": 0.0
+          "content_gap": 0.0,
+          "fabricated_standard": 0.6859,
+          "false_certainty": 0.365,
+          "format_error": 0.0,
+          "missing_insufficient": 1.0
         },
         "calculation": {
-          "all": 0.2487,
+          "all": 0.43,
           "calc_error": 1.0,
-          "fabricated_standard": 0.0913,
-          "false_certainty": 0.1289,
-          "format_error": 0.2659,
-          "unit_error": 1.0
+          "content_gap": 0.0,
+          "fabricated_standard": 0.0449,
+          "false_certainty": 0.0219,
+          "format_error": 0.0,
+          "missing_insufficient": 0.0
         },
         "knowledge": {
-          "all": 0.5925,
-          "calc_error": 0.0,
-          "fabricated_standard": 0.9696,
-          "false_certainty": 0.9644,
-          "format_error": 0.1273,
-          "unit_error": 0.0
+          "all": 0.7512,
+          "calc_error": 0.3914,
+          "content_gap": 1.0,
+          "fabricated_standard": 1.0,
+          "false_certainty": 1.0,
+          "format_error": 1.0,
+          "missing_insufficient": 1.0
         },
         "format+calculation": {
-          "all": 0.525,
+          "all": 0.765,
           "calc_error": 1.0,
-          "fabricated_standard": 0.4087,
-          "false_certainty": 0.4578,
-          "format_error": 0.5431,
-          "unit_error": 1.0
+          "content_gap": 0.0,
+          "fabricated_standard": 0.7308,
+          "false_certainty": 0.3869,
+          "format_error": 0.0,
+          "missing_insufficient": 1.0
         },
         "format+knowledge": {
-          "all": 0.705,
-          "calc_error": 0.0,
-          "fabricated_standard": 0.9696,
-          "false_certainty": 0.9644,
-          "format_error": 0.4644,
-          "unit_error": 0.0
+          "all": 0.7512,
+          "calc_error": 0.3914,
+          "content_gap": 1.0,
+          "fabricated_standard": 1.0,
+          "false_certainty": 1.0,
+          "format_error": 1.0,
+          "missing_insufficient": 1.0
         },
         "calculation+knowledge": {
-          "all": 0.7788,
+          "all": 1.0,
           "calc_error": 1.0,
-          "fabricated_standard": 0.9696,
-          "false_certainty": 0.9644,
-          "format_error": 0.3933,
-          "unit_error": 1.0
+          "content_gap": 1.0,
+          "fabricated_standard": 1.0,
+          "false_certainty": 1.0,
+          "format_error": 1.0,
+          "missing_insufficient": 1.0
         },
         "format+calculation+knowledge": {
-          "all": 0.8462,
+          "all": 1.0,
           "calc_error": 1.0,
-          "fabricated_standard": 0.9696,
-          "false_certainty": 0.9644,
-          "format_error": 0.5955,
-          "unit_error": 1.0
+          "content_gap": 1.0,
+          "fabricated_standard": 1.0,
+          "false_certainty": 1.0,
+          "format_error": 1.0,
+          "missing_insufficient": 1.0
         }
       }
     },
     "envif_bench_oracle": {
-      "n_total": 72,
-      "n_auto": 68,
+      "n_total": 79,
+      "n_auto": 75,
       "prompt_accuracy": 1.0,
       "constraint_accuracy": 1.0,
       "by_family": {
@@ -140,6 +236,7 @@
         "numerical": 1.0
       },
       "by_task": {
+        "air_pollution": 1.0,
         "environmental_calculation": 1.0,
         "environmental_monitoring": 1.0,
         "format_constraint": 1.0,
@@ -173,6 +270,274 @@
       },
       "tag": "oracle",
       "mode": "oracle"
+    },
+    "envif_bench_base": {
+      "n_total": 72,
+      "n_auto": 68,
+      "prompt_accuracy": 0.3676,
+      "constraint_accuracy": 0.5407,
+      "by_family": {
+        "content": 0.3333,
+        "domain": 0.75,
+        "format": 0.6429,
+        "multi": 0.4091,
+        "numerical": 0.0909
+      },
+      "by_task": {
+        "environmental_calculation": 0.1724,
+        "environmental_monitoring": 0.5,
+        "format_constraint": 0.4,
+        "multi_step_reasoning": 0.0,
+        "pollution_control": 0.25,
+        "safety_constraint": 0.5,
+        "terminology_explanation": 0.8333,
+        "wastewater_treatment": 0.7
+      },
+      "by_verifier": {
+        "content.explain_term": 0.8333,
+        "content.missing_params": 1.0,
+        "content.must_include": 0.6111,
+        "domain.allowed_units": 0.0,
+        "domain.no_fabricated_standard": 0.8462,
+        "domain.no_false_certainty": 1.0,
+        "domain.ph_dimensionless": 1.0,
+        "domain.process_match": 0.5,
+        "domain.safety": 0.6,
+        "format.arrow_process": 0.3333,
+        "format.headers": 0.2857,
+        "format.insufficient_prefix": 0.5,
+        "format.length": 0.0,
+        "format.n_causes": 0.8333,
+        "format.n_steps": 1.0,
+        "format.table": 1.0,
+        "numerical.formula": 1.0,
+        "numerical.magnitude": 0.0,
+        "numerical.two_decimals": 0.4231,
+        "numerical.value": 0.1842
+      },
+      "tag": "base",
+      "mode": "pred"
+    },
+    "envif_bench_sft": {
+      "n_total": 72,
+      "n_auto": 68,
+      "prompt_accuracy": 0.3529,
+      "constraint_accuracy": 0.6453,
+      "by_family": {
+        "content": 0.1667,
+        "domain": 0.75,
+        "format": 0.6429,
+        "multi": 0.1364,
+        "numerical": 0.3636
+      },
+      "by_task": {
+        "environmental_calculation": 0.3103,
+        "environmental_monitoring": 0.3333,
+        "format_constraint": 0.0,
+        "multi_step_reasoning": 0.25,
+        "pollution_control": 0.0,
+        "safety_constraint": 0.5,
+        "terminology_explanation": 0.3333,
+        "wastewater_treatment": 0.8
+      },
+      "by_verifier": {
+        "content.explain_term": 0.3333,
+        "content.missing_params": 0.0,
+        "content.must_include": 0.2222,
+        "domain.allowed_units": 0.0,
+        "domain.no_fabricated_standard": 1.0,
+        "domain.no_false_certainty": 1.0,
+        "domain.ph_dimensionless": 0.0,
+        "domain.process_match": 0.0,
+        "domain.safety": 0.8,
+        "format.arrow_process": 0.6667,
+        "format.headers": 0.0,
+        "format.insufficient_prefix": 0.5,
+        "format.length": 0.0,
+        "format.n_causes": 1.0,
+        "format.n_steps": 1.0,
+        "format.table": 1.0,
+        "numerical.formula": 1.0,
+        "numerical.magnitude": 1.0,
+        "numerical.two_decimals": 0.9231,
+        "numerical.value": 0.3947
+      },
+      "tag": "sft",
+      "mode": "pred"
+    },
+    "envif_bench_sft_dpo": {
+      "n_total": 72,
+      "n_auto": 68,
+      "prompt_accuracy": 0.2353,
+      "constraint_accuracy": 0.6221,
+      "by_family": {
+        "content": 0.1667,
+        "domain": 0.75,
+        "format": 0.5,
+        "multi": 0.0455,
+        "numerical": 0.1818
+      },
+      "by_task": {
+        "environmental_calculation": 0.1724,
+        "environmental_monitoring": 0.3333,
+        "format_constraint": 0.0,
+        "multi_step_reasoning": 0.25,
+        "pollution_control": 0.0,
+        "safety_constraint": 0.5,
+        "terminology_explanation": 0.0,
+        "wastewater_treatment": 0.6
+      },
+      "by_verifier": {
+        "content.explain_term": 0.0,
+        "content.missing_params": 0.0,
+        "content.must_include": 0.3333,
+        "domain.allowed_units": 0.0,
+        "domain.no_fabricated_standard": 1.0,
+        "domain.no_false_certainty": 1.0,
+        "domain.ph_dimensionless": 0.0,
+        "domain.process_match": 0.5,
+        "domain.safety": 0.4,
+        "format.arrow_process": 0.6667,
+        "format.headers": 0.0,
+        "format.insufficient_prefix": 0.5,
+        "format.length": 0.0,
+        "format.n_causes": 0.6667,
+        "format.n_steps": 1.0,
+        "format.table": 1.0,
+        "numerical.formula": 1.0,
+        "numerical.magnitude": 1.0,
+        "numerical.two_decimals": 0.9615,
+        "numerical.value": 0.3421
+      },
+      "tag": "sft_dpo",
+      "mode": "pred"
+    },
+    "envif_bench_sft_v2": {
+      "n_total": 79,
+      "n_auto": 75,
+      "prompt_accuracy": 0.3733,
+      "constraint_accuracy": 0.6684,
+      "by_family": {
+        "content": 0.6667,
+        "domain": 0.75,
+        "format": 0.6667,
+        "multi": 0.24,
+        "numerical": 0.2
+      },
+      "by_task": {
+        "air_pollution": 0.4286,
+        "environmental_calculation": 0.1724,
+        "environmental_monitoring": 0.3333,
+        "format_constraint": 0.2,
+        "multi_step_reasoning": 0.5,
+        "pollution_control": 0.75,
+        "safety_constraint": 0.5,
+        "terminology_explanation": 0.3333,
+        "wastewater_treatment": 0.8
+      },
+      "by_verifier": {
+        "content.explain_term": 0.3333,
+        "content.missing_params": 0.5,
+        "content.must_include": 0.4,
+        "domain.allowed_units": 0.5,
+        "domain.no_fabricated_standard": 0.9375,
+        "domain.no_false_certainty": 1.0,
+        "domain.ph_dimensionless": 0.0,
+        "domain.process_match": 0.5,
+        "domain.safety": 0.7143,
+        "format.arrow_process": 0.6667,
+        "format.headers": 0.2857,
+        "format.insufficient_prefix": 1.0,
+        "format.length": 0.0,
+        "format.n_causes": 0.8571,
+        "format.n_steps": 1.0,
+        "format.table": 1.0,
+        "numerical.formula": 0.9259,
+        "numerical.magnitude": 1.0,
+        "numerical.two_decimals": 0.9,
+        "numerical.value": 0.3636
+      },
+      "tag": "sft_v2",
+      "mode": "pred"
+    },
+    "envif_bench_sft_dpo_v2": null,
+    "envif_bench_base_air": {
+      "n_total": 7,
+      "n_auto": 7,
+      "prompt_accuracy": 0.1429,
+      "constraint_accuracy": 0.4583,
+      "by_family": {
+        "format": 1.0,
+        "multi": 0.0,
+        "numerical": 0.0
+      },
+      "by_task": {
+        "air_pollution": 0.1429
+      },
+      "by_verifier": {
+        "content.must_include": 0.0,
+        "domain.no_fabricated_standard": 1.0,
+        "domain.process_match": 1.0,
+        "domain.safety": 0.5,
+        "format.n_causes": 1.0,
+        "numerical.formula": 0.0,
+        "numerical.two_decimals": 0.75,
+        "numerical.value": 0.1667
+      },
+      "tag": "base_air",
+      "mode": "pred"
+    },
+    "envif_bench_sft_air": {
+      "n_total": 7,
+      "n_auto": 7,
+      "prompt_accuracy": 0.1429,
+      "constraint_accuracy": 0.4583,
+      "by_family": {
+        "format": 1.0,
+        "multi": 0.0,
+        "numerical": 0.0
+      },
+      "by_task": {
+        "air_pollution": 0.1429
+      },
+      "by_verifier": {
+        "content.must_include": 0.0,
+        "domain.no_fabricated_standard": 1.0,
+        "domain.process_match": 0.0,
+        "domain.safety": 0.5,
+        "format.n_causes": 1.0,
+        "numerical.formula": 0.5,
+        "numerical.two_decimals": 1.0,
+        "numerical.value": 0.0
+      },
+      "tag": "sft_air",
+      "mode": "pred"
+    },
+    "envif_bench_sft_dpo_air": {
+      "n_total": 7,
+      "n_auto": 7,
+      "prompt_accuracy": 0.1429,
+      "constraint_accuracy": 0.4167,
+      "by_family": {
+        "format": 1.0,
+        "multi": 0.0,
+        "numerical": 0.0
+      },
+      "by_task": {
+        "air_pollution": 0.1429
+      },
+      "by_verifier": {
+        "content.must_include": 0.0,
+        "domain.no_fabricated_standard": 1.0,
+        "domain.process_match": 0.0,
+        "domain.safety": 0.5,
+        "format.n_causes": 1.0,
+        "numerical.formula": 0.25,
+        "numerical.two_decimals": 1.0,
+        "numerical.value": 0.0
+      },
+      "tag": "sft_dpo_air",
+      "mode": "pred"
     }
   },
   "deploy": {

@@ -80,7 +80,7 @@ def evaluate_predictions(pred_path: Path, test_rows: list) -> list:
     return out
 
 
-def generate_with_model(model_path: str, test_rows: list, max_new_tokens: int = 512) -> list:
+def generate_with_model(model_path: str, test_rows: list, max_new_tokens: int = 512, adapter: str = "") -> list:
     from transformers import AutoModelForCausalLM, AutoTokenizer
     import torch
 
@@ -88,6 +88,10 @@ def generate_with_model(model_path: str, test_rows: list, max_new_tokens: int = 
     model = AutoModelForCausalLM.from_pretrained(
         model_path, trust_remote_code=True, device_map="auto", torch_dtype=torch.float16
     )
+    if adapter and os.path.isfile(os.path.join(adapter, "adapter_config.json")):
+        from peft import PeftModel
+
+        model = PeftModel.from_pretrained(model, adapter)
     out = []
     t0 = time.time()
     for item in test_rows:
@@ -111,6 +115,7 @@ def main():
     parser.add_argument("--test-file", default=str(ROOT / "data" / "environmental_engineering_test.jsonl"))
     parser.add_argument("--pred-file", help="已有预测 JSONL，每行含 query 与 response")
     parser.add_argument("--model-path", help="待评测模型目录")
+    parser.add_argument("--adapter", default="", help="可选 LoRA 目录")
     parser.add_argument("--tag", default="manual")
     parser.add_argument("--out-dir", default=str(ROOT / "eval_results"))
     parser.add_argument("--limit", type=int, default=0)
@@ -123,7 +128,7 @@ def main():
     if args.pred_file:
         detailed = evaluate_predictions(Path(args.pred_file), test_rows)
     elif args.model_path:
-        detailed = generate_with_model(args.model_path, test_rows)
+        detailed = generate_with_model(args.model_path, test_rows, adapter=args.adapter)
     else:
         raise SystemExit("请提供 --pred-file 或 --model-path")
 

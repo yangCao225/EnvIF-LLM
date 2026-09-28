@@ -1,7 +1,7 @@
 {
   "mode": "envif_tlr_offline",
-  "sft": 798,
-  "dpo_pairs": 2394,
+  "sft": 1020,
+  "dpo_pairs": 2667,
   "skipped_low_score": 0,
-    "note": "由带单位计算层 + 分类型负样本构造，不是教师模型蒸馏。SFT LoRA loss 见 training / adapter 字段，不是本条。"
+  "note": "由带单位计算层 + 分类型难负样本构造，不是教师模型蒸馏。优先 calc/unit/知识近误，少用 format_error。SFT LoRA loss 见 training / adapter 字段，不是本条。"
 }

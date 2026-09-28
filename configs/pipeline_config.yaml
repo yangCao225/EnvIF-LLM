@@ -32,12 +32,12 @@ data:
   dpo_pairs: "./output/dpo_pairs.jsonl"
 
   scene_mix:
-    wastewater: 0.40
-    monitoring: 0.20
-    air: 0.15
-    solid_waste: 0.10
-    noise: 0.05
-    eia_cleaner_production: 0.10
+    wastewater: 0.38
+    monitoring: 0.18
+    air: 0.22
+    solid_waste: 0.09
+    noise: 0.04
+    eia_cleaner_production: 0.09
 
   augmentation:
     k_augment: 3

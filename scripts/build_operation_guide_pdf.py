@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""将 docs/AutoIF环境工程操作指南.md 转为中文 PDF。"""
+"""将 Markdown 转为中文 PDF（操作说明或 README）。"""
 from __future__ import annotations
 
+import argparse
 import re
 from pathlib import Path
 
@@ -26,8 +27,8 @@ from reportlab.platypus import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-MD = ROOT / "docs" / "AutoIF环境工程操作指南.md"
-OUT = ROOT / "AutoIF环境工程操作指南.pdf"
+MD = ROOT / "docs" / "EnvIF环境工程操作说明.md"
+OUT = ROOT / "EnvIF环境工程操作说明.pdf"
 
 SONG_CANDIDATES = [
     ("C:/Windows/Fonts/simsun.ttc", 0),
@@ -107,6 +108,13 @@ def mix_fonts(escaped: str) -> str:
 
 
 def inline(text: str) -> str:
+    text = (
+        text.replace("\u2212", "-")  # minus → ASCII，避免宋体缺字变空白
+        .replace("\u2013", "-")
+        .replace("\u2014", "-")
+    )
+    text = re.sub(r"!\[([^\]]*)\]\([^)]+\)", r"\1", text)
+    text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r"\1（\2）", text)
     text = escape(text)
     # 行内代码只缩小字号，中文仍走宋体；西文由 mix_fonts 套 Times
     text = re.sub(r"`([^`]+)`", lambda m: f'<font size="8">{m.group(1)}</font>', text)
@@ -155,7 +163,7 @@ def styles():
         spaceBefore=8, spaceAfter=4,
     ))
     ss.add(ParagraphStyle(
-        "Body", fontName="Song", fontSize=9.5, leading=16, alignment=TA_JUSTIFY, spaceAfter=6,
+        "Body", fontName="Song", fontSize=9.5, leading=16, alignment=TA_LEFT, spaceAfter=6,
     ))
     ss.add(ParagraphStyle(
         "BulletCN", fontName="Song", fontSize=9.5, leading=15, leftIndent=14, spaceAfter=2,
@@ -182,17 +190,22 @@ def styles():
 
 
 def header_footer(canvas, doc):
+    header = getattr(doc, "header_text", "EnvIF 环境工程指令遵循优化系统 · 操作说明")
+    footer = getattr(
+        doc, "footer_text",
+        f"第 {doc.page} 页  |  实验数字只引用 output/experiment_summary.json",
+    )
     canvas.saveState()
     canvas.setFillColor(colors.HexColor("#1e3a5f"))
     canvas.rect(0, A4[1] - 12 * mm, A4[0], 12 * mm, fill=1, stroke=0)
     canvas.setFillColor(colors.white)
-    draw_mixed(canvas, 18 * mm, A4[1] - 8 * mm, "AutoIF 环境工程指令遵循优化系统 · 操作指南", size=8)
+    draw_mixed(canvas, 18 * mm, A4[1] - 8 * mm, header, size=8)
     canvas.setFillColor(colors.HexColor("#e2e8f0"))
     canvas.rect(0, 0, A4[0], 12 * mm, fill=1, stroke=0)
     canvas.setFillColor(colors.HexColor("#334155"))
     draw_mixed(
         canvas, A4[0] / 2, 5 * mm,
-        f"第 {doc.page} 页  |  实验数字只引用 output/experiment_summary.json",
+        footer.replace("{page}", str(doc.page)),
         size=8, center=True,
     )
     canvas.restoreState()
@@ -228,25 +241,44 @@ def parse_table(rows: list[str], st) -> Table:
     return tbl
 
 
-def build():
+def _cover(kind: str, st) -> list:
+    story = [Spacer(1, 38 * mm)]
+    if kind == "readme":
+        story.append(Paragraph(inline("面向污水处理、环境监测与大气污染的"), st["CoverSub"]))
+        story.append(Paragraph(inline("EnvIF 环境工程大模型"), st["CoverTitle"]))
+        story.append(Paragraph(inline("指令遵循优化系统"), st["CoverTitle"]))
+        story.append(Spacer(1, 8 * mm))
+        story.append(Paragraph(inline("项目说明（README）"), st["CoverSub"]))
+        story.append(Spacer(1, 6 * mm))
+        story.append(Paragraph(inline("本机 1.5B LoRA · EnvIF-TLR 离线数据 · EnvIF-Bench"), st["Caption"]))
+        story.append(Paragraph(
+            inline("三条并列主线：污水处理　　环境监测　　大气污染（SO2 / NOx / 基准氧 / FGD / SCR）"),
+            st["Caption"],
+        ))
+        story.append(Paragraph(inline("扩展：固废 / 噪声 / 环评。大气污染不是污水任务的边角料。"), st["Caption"]))
+        story.append(Paragraph(inline("实验数字只引用 output/experiment_summary.json；7B 教师全流程尚未跑通"), st["Caption"]))
+    else:
+        story.append(Paragraph(inline("面向污水处理、环境监测与大气污染的"), st["CoverSub"]))
+        story.append(Paragraph(inline("EnvIF 环境工程大模型"), st["CoverTitle"]))
+        story.append(Paragraph(inline("指令遵循优化系统"), st["CoverTitle"]))
+        story.append(Spacer(1, 8 * mm))
+        story.append(Paragraph(inline("操 作 说 明"), st["CoverSub"]))
+        story.append(Spacer(1, 6 * mm))
+        story.append(Paragraph(inline("本机 1.5B LoRA · EnvIF-TLR 离线数据 · EnvIF-Bench"), st["Caption"]))
+        story.append(Paragraph(inline("三条主线：污水处理　　环境监测　　大气污染（含硫含氮）　　扩展：固废 / 噪声 / 环评"), st["Caption"]))
+        story.append(Paragraph(inline("实验数字只引用 output/experiment_summary.json；7B 教师全流程尚未跑通"), st["Caption"]))
+    story.append(PageBreak())
+    return story
+
+
+def build(md_path: Path | None = None, out_path: Path | None = None, kind: str = "ops"):
     register_fonts()
     st = styles()
-    text = MD.read_text(encoding="utf-8")
+    md_path = Path(md_path) if md_path else MD
+    out_path = Path(out_path) if out_path else OUT
+    text = md_path.read_text(encoding="utf-8")
     lines = text.splitlines()
-    story = []
-
-    # cover
-    story.append(Spacer(1, 38 * mm))
-    story.append(Paragraph(inline("面向污水处理与环境监测的"), st["CoverSub"]))
-    story.append(Paragraph(inline("AutoIF 环境工程大模型"), st["CoverTitle"]))
-    story.append(Paragraph(inline("指令遵循优化系统"), st["CoverTitle"]))
-    story.append(Spacer(1, 8 * mm))
-    story.append(Paragraph(inline("完 整 操 作 指 南"), st["CoverSub"]))
-    story.append(Spacer(1, 6 * mm))
-    story.append(Paragraph(inline("从 AutoDL 租机、环境安装、一键训练，到评测、排错与关机"), st["Caption"]))
-    story.append(Paragraph(inline("主线：污水处理　　第二场景：环境监测　　扩展：废气 / 固废 / 噪声 / 环评"), st["Caption"]))
-    story.append(Paragraph(inline("请勿沿用旧材料中互相矛盾的 37/406 条 SFT 或两套 DPO 学习率"), st["Caption"]))
-    story.append(PageBreak())
+    story = _cover(kind, st)
 
     i = 0
     n = len(lines)
@@ -255,6 +287,9 @@ def build():
         line = lines[i]
         raw = line.rstrip()
         if not raw:
+            i += 1
+            continue
+        if raw.startswith("[!["):
             i += 1
             continue
         if raw.startswith("```"):
@@ -313,20 +348,35 @@ def build():
         story.append(Paragraph(inline(raw), st["Body"]))
         i += 1
 
-    OUT.parent.mkdir(parents=True, exist_ok=True)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    if kind == "readme":
+        pdf_title = "EnvIF 项目说明"
+        header = "EnvIF · README · 污水处理 / 环境监测 / 大气污染"
+        footer = "第 {page} 页  |  实验数字只引用 output/experiment_summary.json"
+    else:
+        pdf_title = "EnvIF 环境工程操作说明"
+        header = "EnvIF 环境工程指令遵循优化系统 · 操作说明"
+        footer = "第 {page} 页  |  实验数字只引用 output/experiment_summary.json"
     doc = SimpleDocTemplate(
-        str(OUT),
+        str(out_path),
         pagesize=A4,
         leftMargin=18 * mm,
         rightMargin=18 * mm,
         topMargin=18 * mm,
         bottomMargin=16 * mm,
-        title="AutoIF 环境工程操作指南",
+        title=pdf_title,
         author="AutoIF-EnvEng",
     )
+    doc.header_text = header
+    doc.footer_text = footer
     doc.build(story, onFirstPage=header_footer, onLaterPages=header_footer)
-    print(f"PDF: {OUT}  pages~{doc.page}")
+    print(f"PDF: {out_path}  pages~{doc.page}")
 
 
 if __name__ == "__main__":
-    build()
+    parser = argparse.ArgumentParser(description="Markdown → 中文 PDF")
+    parser.add_argument("--md", type=Path, default=None)
+    parser.add_argument("--out", type=Path, default=None)
+    parser.add_argument("--kind", choices=["ops", "readme"], default="ops")
+    args = parser.parse_args()
+    build(args.md, args.out, args.kind)

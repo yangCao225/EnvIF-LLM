@@ -126,6 +126,28 @@ SEED_EVAL_FUNCS: Dict[str, str] = {
             keys = ["优先", "备选", "不推荐"]
             return all(k in (response or "") for k in keys)
     ''').strip(),
+    "烟气负荷": textwrap.dedent('''
+        def evaluate(response):
+            import re
+            text = response or ""
+            if not any(k in text for k in ["Qg", "烟气量", "m³/h", "m3/h"]):
+                return False
+            if "mg/m³" not in text and "mg/m3" not in text:
+                return False
+            if not re.search(r"24\\s*×\\s*10\\^\\{-6\\}|24\\s*\\*\\s*10\\^\\{-6\\}|24e-6|24\\s*×\\s*10\\^-6", text):
+                return False
+            return bool(re.search(r"kg\\s*/\\s*d|kg/d|千克/天", text, re.I))
+    ''').strip(),
+    "基准氧": textwrap.dedent('''
+        def evaluate(response):
+            import re
+            text = response or ""
+            if "21" not in text:
+                return False
+            if not any(k in text for k in ["含氧", "O2", "O₂", "基准氧"]):
+                return False
+            return bool(re.search(r"\\d+(?:\\.\\d+)?\\s*mg\\s*/\\s*m", text, re.I))
+    ''').strip(),
 }
 
 
@@ -146,6 +168,9 @@ KEYWORD_TO_FUNC = [
     ("分类、暂存、运输", "固废五段"),
     ("声源、传播路径和受声点", "噪声三层面"),
     ("优先、备选、不推荐", "废气三级"),
+    ("Qg×ΔC×24×10", "烟气负荷"),
+    ("烟气污染物负荷", "烟气负荷"),
+    ("基准氧", "基准氧"),
 ]
 
 

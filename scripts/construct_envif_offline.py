@@ -56,7 +56,32 @@ def main():
             "layer_score": sc,
             "source": "envif_tlr_offline",
         })
-        for neg in typed_negatives(query, gold, chosen)[:3]:
+        hard, easy = [], []
+        for neg in typed_negatives(query, gold, chosen, cat):
+            ev_r = evaluate_response(
+                neg["text"], query=query, gold=gold, format_constraints=gold.get("format_constraints")
+            )
+            if score_response(ev_r) >= sc:
+                continue
+            if neg["error_type"] == "format_error":
+                easy.append(neg)
+            else:
+                hard.append(neg)
+        picked, seen_types = [], set()
+        for neg in hard:
+            if neg["error_type"] in seen_types:
+                continue
+            picked.append(neg)
+            seen_types.add(neg["error_type"])
+            if len(picked) >= 3:
+                break
+        for neg in hard + easy:
+            if len(picked) >= 3:
+                break
+            if neg in picked:
+                continue
+            picked.append(neg)
+        for neg in picked:
             pairs.append(build_pair(query, inst, chosen, neg["text"], neg["error_type"], gold=gold, category=cat))
 
     out = ROOT / "output"
@@ -72,7 +97,7 @@ def main():
         "sft": len(sft),
         "dpo_pairs": len(pairs),
         "skipped_low_score": skipped,
-        "note": "由带单位计算层 + 分类型负样本构造，不是教师模型蒸馏。SFT LoRA loss 见 training / adapter 字段，不是本条。",
+        "note": "由带单位计算层 + 分类型难负样本构造，不是教师模型蒸馏。优先 calc/unit/知识近误，少用 format_error。SFT LoRA loss 见 training / adapter 字段，不是本条。",
     }
     (out / "envif_offline_meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(meta, ensure_ascii=False, indent=2))

@@ -1,0 +1,26 @@
+{
+  "n_total": 7,
+  "n_auto": 7,
+  "prompt_accuracy": 0.1429,
+  "constraint_accuracy": 0.4167,
+  "by_family": {
+    "format": 1.0,
+    "multi": 0.0,
+    "numerical": 0.0
+  },
+  "by_task": {
+    "air_pollution": 0.1429
+  },
+  "by_verifier": {
+    "content.must_include": 0.0,
+    "domain.no_fabricated_standard": 1.0,
+    "domain.process_match": 0.0,
+    "domain.safety": 0.5,
+    "format.n_causes": 1.0,
+    "numerical.formula": 0.25,
+    "numerical.two_decimals": 1.0,
+    "numerical.value": 0.0
+  },
+  "tag": "sft_dpo_air",
+  "mode": "pred"
+}

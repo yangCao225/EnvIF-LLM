@@ -6,13 +6,46 @@ import unittest
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.join(ROOT, "code"))
 
-from env_validators import evaluate_response, pollution_load_kg_d, removal_rate  # noqa: E402
+from env_validators import evaluate_response, gas_load_kg_d, pollution_load_kg_d, removal_rate  # noqa: E402
 
 
 class TestCalculations(unittest.TestCase):
     def test_cod_example(self):
         self.assertAlmostEqual(removal_rate(300, 50), 83.3333, places=2)
         self.assertAlmostEqual(pollution_load_kg_d(10000, 250), 2500.0)
+
+    def test_gas_load_so2_example(self):
+        self.assertAlmostEqual(gas_load_kg_d(6850, 115), 18.91, places=2)
+        self.assertAlmostEqual(gas_load_kg_d(6850, 95), 15.62, places=2)
+
+    def test_dry_o2_correct(self):
+        from env_validators import dry_o2_correct
+        self.assertAlmostEqual(dry_o2_correct(260, 8.5, 6.0), 312.0, places=2)
+        gold = {
+            "params": {"C": 260, "O2m": 8.5, "O2s": 6.0},
+            "o2_corrected": 312.0,
+            "require_two_decimals": True,
+        }
+        ok = evaluate_response(
+            "C'=260×(21−6)/(21−8.5)=312.00 mg/m³。实测 260 mg/m³。需核实现行标准。",
+            query="请按基准氧 6% 折算", gold=gold,
+        )
+        bad = evaluate_response("实测 260 mg/m³，已经达标。", query="请按基准氧 6% 折算", gold=gold)
+        self.assertTrue(ok["calculation"]["passed"], ok)
+        self.assertFalse(bad["calculation"]["passed"])
+        gold_fmt = {**gold, "format_constraints": {"require_formula": True}}
+        fmt_ok = evaluate_response(
+            "公式 C'=C×(21−O2,s)/(21−O2,m)=260×(21−6)/(21−8.5)=312.00 mg/m³。需核实现行标准。",
+            query="请按基准氧 6% 折算，烟气含氧 8.5%。",
+            gold=gold_fmt,
+        )
+        fmt_bad = evaluate_response(
+            "C_in=(10.74×Qg+C_in×O2_in)/(Qg+0.296×O2_in)=312.00。需核实现行标准。",
+            query="请按基准氧 6% 折算，烟气含氧 8.5%。",
+            gold=gold_fmt,
+        )
+        self.assertTrue(fmt_ok["format"]["passed"], fmt_ok)
+        self.assertFalse(fmt_bad["format"]["passed"], fmt_bad)
 
     def test_correct_response_passes_calc(self):
         query = "某污水厂设计水量为10000 m³/d，进水COD为300 mg/L，出水COD为50 mg/L，请计算COD去除率和每日去除负荷。"
@@ -85,7 +118,9 @@ class TestCalculations(unittest.TestCase):
         sys.path.insert(0, os.path.join(ROOT, "scripts"))
         from extended_domains import EXTENDED_DOMAINS
         self.assertIn("环境工程", EXTENDED_DOMAINS)
+        self.assertIn("大气污染", EXTENDED_DOMAINS)
         self.assertGreaterEqual(len(EXTENDED_DOMAINS["环境工程"]["seed_instructions"]), 30)
+        self.assertGreaterEqual(len(EXTENDED_DOMAINS["大气污染"]["seed_instructions"]), 5)
         self.assertEqual(
             EXTENDED_DOMAINS["污水处理"]["seed_instructions"],
             EXTENDED_DOMAINS["环境工程"]["seed_instructions"],

@@ -1,6 +1,6 @@
 {
-  "n_total": 72,
-  "n_auto": 68,
+  "n_total": 79,
+  "n_auto": 75,
   "prompt_accuracy": 1.0,
   "constraint_accuracy": 1.0,
   "by_family": {
@@ -11,6 +11,7 @@
     "numerical": 1.0
   },
   "by_task": {
+    "air_pollution": 1.0,
     "environmental_calculation": 1.0,
     "environmental_monitoring": 1.0,
     "format_constraint": 1.0,

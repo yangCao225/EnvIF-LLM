@@ -73,9 +73,6 @@ def main():
 
     out = ROOT / "output" / "envif_ablation.json"
     out.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-    eval_dir = ROOT / "eval_results"
-    eval_dir.mkdir(exist_ok=True)
-    (eval_dir / "envif_ablation.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
 

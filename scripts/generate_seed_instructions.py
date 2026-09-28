@@ -212,7 +212,7 @@ def generate_seed_instructions(domain, output_file=None, count=30, use_llm=False
         # 使用预定义模板
         template = DOMAIN_TEMPLATES[domain]
         base_instructions = [x for x in template["seed_instructions"] if x]
-        env_domains = {"环境工程", "污水处理", "环境监测"}
+        env_domains = {"环境工程", "污水处理", "环境监测", "大气污染"}
         if domain in env_domains:
             instructions = base_instructions[:count]
         elif count > len(base_instructions):
@@ -322,7 +322,7 @@ def interactive_mode():
     print("📚 可用领域分类:\n")
     
     categories = {
-        "环境工程（本项目主线）": ["环境工程", "污水处理", "环境监测"],
+        "环境工程（本项目主线）": ["环境工程", "污水处理", "环境监测", "大气污染"],
         "基础科学": ["数学", "物理", "化学", "生物", "天文", "地理"],
         "传统工程": ["土木工程", "机械工程", "电子工程", "化工", "材料科学", "能源工程"],
         "人文社科": ["文学", "历史", "哲学", "新闻传播", "社会学", "心理学"],
@@ -391,7 +391,7 @@ if __name__ == "__main__":
   python generate_seed_instructions.py --list
 
 可用领域分类:
-  环境工程: 环境工程、污水处理、环境监测
+  环境工程: 环境工程、污水处理、环境监测、大气污染
   基础科学: 数学、物理、化学、生物、天文、地理
   传统工程: 土木工程、机械工程、电子工程、化工、材料科学、能源工程
   人文社科: 文学、历史、哲学、新闻传播、社会学、心理学

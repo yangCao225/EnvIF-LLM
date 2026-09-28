@@ -15,7 +15,7 @@ if hasattr(sys.stdout, "reconfigure"):
     except Exception:
         pass
 
-from env_validators import evaluate_response, pollution_load_kg_d, removal_rate, score_response
+from env_validators import evaluate_response, gas_load_kg_d, pollution_load_kg_d, removal_rate, score_response
 from env_seed_validators import funcs_for_instruction
 from utils import compile_eval_func
 
@@ -38,8 +38,9 @@ def show_eval(name: str, result: dict):
 
 def main():
     banner("1. 项目现在在做什么")
-    print("输入: 水质参数 / 工艺条件 / 监测数据")
+    print("输入: 水质参数 / 烟气工况 / 工艺条件 / 监测数据")
     print("输出: 带单位、公式、过程、假设的结构化回答")
+    print("主线: 污水处理、环境监测、大气污染（含硫含氮烟气）")
     print("边界: 没给标准时不得编造限值")
     print("验证: 格式 → 计算 → 专业依据")
 
@@ -101,6 +102,31 @@ def main():
         results[name] = evaluate_response(text, query=q, gold=gold)
         show_eval(name, results[name])
 
+    banner("5b. 大气污染例题：烟气负荷不得套用废水公式")
+    q_air = "临港燃煤热电烟气量Qg=6850 m³/h，进口SO2=115 mg/m³，出口SO2=20 mg/m³。请计算去除率和每日去除负荷。"
+    gold_air = {
+        "params": {"Qg": 6850, "Cin": 115, "Cout": 20},
+        "removal_rate_pct": 82.61,
+        "load_kg_d": round(gas_load_kg_d(6850, 95), 2),
+        "require_two_decimals": True,
+        "require_magnitude_check": True,
+        "knowledge_constraints": {"forbid_fabricated_standard": True, "process_family": "so2"},
+    }
+    print(q_air)
+    print(f"  去除率 = (115-20)/115 × 100% = {gold_air['removal_rate_pct']}%")
+    print(f"  负荷   = 6850 × 95 × 24 × 10^{-6} = {gold_air['load_kg_d']} kg/d")
+    air_ok = (
+        "符号约定：烟气量用 Qg（m³/h）。已知进口 C_in=115 mg/m³、出口 C_out=20 mg/m³、烟气量 Qg=6850 m³/h。"
+        "去除率=(115-20)/115×100%=82.61%。"
+        "每日去除负荷=Qg×(C_in-C_out)×24×10^{-6}=6850×(115-20)×24×10^{-6}=15.62 kg/d。"
+        "该负荷为含硫烟气脱硫削减量。数量级合理性检查通过。未提供排放标准，需核实现行标准。"
+    )
+    air_bad = (
+        "把烟气量当成水量。负荷=Q×(C_in-C_out)×0.001=6850×(115-20)×0.001=650.75 kg/d。已经达标。"
+    )
+    show_eval("烟气 chosen", evaluate_response(air_ok, query=q_air, gold=gold_air))
+    show_eval("套用废水公式", evaluate_response(air_bad, query=q_air, gold=gold_air))
+
     banner("6. 缺参数题：必须以“信息不足”开头")
     q2 = "监测数据仅给出 COD=300 mg/L，未给出水量和执行标准，请判断是否达标。"
     gold2 = {
@@ -135,16 +161,33 @@ def main():
             if gold_item.get("removal_rate_pct") is not None:
                 cin, cout = params.get("Cin"), params.get("Cout")
                 qv = params.get("Q")
+                qg = params.get("Qg")
                 rate = gold_item["removal_rate_pct"]
                 load = gold_item.get("load_kg_d")
+                if qg is not None:
+                    resp = (
+                        f"已知进口{cin} mg/m³、出口{cout} mg/m³、烟气量Qg={qg} m³/h。"
+                        f"去除率=({cin}-{cout})/{cin}×100%={rate:.2f}%。"
+                    )
+                    if load is not None:
+                        resp += f"每日去除负荷={qg}×({cin}-{cout})×24×10^{-6}={load:.2f} kg/d。"
+                    resp += "数量级合理性检查通过。未提供标准，需核实现行标准。"
+                else:
+                    resp = (
+                        f"已知进水{cin} mg/L、出水{cout} mg/L"
+                        + (f"、水量{qv} m³/d。" if qv else "。")
+                        + f"去除率=({cin}-{cout})/{cin}×100%={rate:.2f}%。"
+                    )
+                    if load is not None:
+                        resp += f" 每日去除负荷={qv}×({cin}-{cout})×0.001={load:.2f} kg/d。"
+                    resp += " 数量级合理性检查：结果与水量、浓度差匹配。未提供标准，需核实现行标准。"
+            elif gold_item.get("o2_corrected") is not None:
+                c, om, os = params.get("C"), params.get("O2m"), params.get("O2s")
+                corr = gold_item["o2_corrected"]
                 resp = (
-                    f"已知进水{cin} mg/L、出水{cout} mg/L"
-                    + (f"、水量{qv} m³/d。" if qv else "。")
-                    + f"去除率=({cin}-{cout})/{cin}×100%={rate:.2f}%。"
+                    f"C'={c}×(21−{os})/(21−{om})={corr:.2f} mg/m³。实测 {c} mg/m³。"
+                    "未提供排放标准，需核实现行标准。"
                 )
-                if load is not None:
-                    resp += f" 每日去除负荷={qv}×({cin}-{cout})×0.001={load:.2f} kg/d。"
-                resp += " 数量级合理性检查：结果与水量、浓度差匹配。未提供标准，需核实现行标准。"
             elif gold_item.get("format_constraints", {}).get("must_start_insufficient"):
                 resp = "信息不足。列出缺失参数：水量、采样时间、执行标准名称及年份。不得给出确定结论。"
             elif gold_item.get("format_constraints", {}).get("exactly_n_causes"):
@@ -162,9 +205,9 @@ def main():
     with pred_path.open("w", encoding="utf-8") as f:
         for row in preds:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
-    print(f"\n已写出 {pred_path}（{len(preds)} 条模拟预测）")
-    print("下一步可用官方评测脚本：")
-    print("  python scripts/eval_env_engineering.py --pred-file eval_results/demo_preds.jsonl --tag demo")
+    print(f"\n已写出 {pred_path}（{len(preds)} 条格式样例，不是模型预测）")
+    print("不要拿这 12 条去评 389 条测试集。模型成绩看 EnvIF-Bench：")
+    print("  python scripts/eval_envif_bench.py --pred-file eval_results/bench_sft_v2_preds.jsonl --tag sft_v2")
 
 
 if __name__ == "__main__":
